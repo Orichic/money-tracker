@@ -336,6 +336,7 @@
   var SESSION_KEY = 'moneytracker.session';
   var LOCALONLY_KEY = 'moneytracker.localonly';
   var SYNCED_ONCE_KEY = 'moneytracker.synced-once';
+  var PENDING_OWNER_KEY = 'moneytracker.pending-owner';
   var PRESYNC_KEY = 'moneytracker.presync-backup';
   var EMAIL_KEY = 'moneytracker.email';
   var TIP_KEY = 'moneytracker.tip-dismissed';
@@ -348,6 +349,8 @@
   var refreshing = null; // in-flight token refresh promise
   var syncTimer = null;
   var migrationServer = null; // server entries held while the migrate choice is shown
+  var pendingGen = 0;    // bumped on every pending-queue change; stale pulls are discarded
+  var pendingDirty = false; // true when the queue could not be persisted (storage full)
 
   var $ = function (id) { return document.getElementById(id); };
   var balanceEl = $('balance'), updatedEl = $('updated'), errorEl = $('error');
@@ -355,7 +358,7 @@
   var amountEl = $('amount'), noteEl = $('note');
 
   function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
-  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { return false; } }
   function lsDel(k) { try { localStorage.removeItem(k); } catch (e) { } }
 
   // ---------- money helpers (all math in integer cents) ----------
@@ -452,17 +455,22 @@
   }
 
   // Returns null when the shape is wrong, an array (possibly empty) when valid.
+  // Entries the cloud would reject (bad id, oversized amount) are repaired or
+  // skipped here so they can never silently poison the sync queue.
+  var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   function sanitize(data) {
     if (!data || !Array.isArray(data.entries)) return null;
     var out = [];
     for (var i = 0; i < data.entries.length; i++) {
       var e = data.entries[i];
       if (!e || typeof e.amount !== 'number' || !isFinite(e.amount)) continue;
+      var amt = Math.round(e.amount * 100) / 100;
+      if (Math.abs(Math.round(amt * 100)) > MAX_CENTS) continue;
       out.push({
-        id: typeof e.id === 'string' && e.id ? e.id : uuid(),
+        id: (typeof e.id === 'string' && UUID_RE.test(e.id)) ? e.id.toLowerCase() : uuid(),
         date: typeof e.date === 'string' ? e.date : '',
-        note: typeof e.note === 'string' ? e.note : '',
-        amount: Math.round(e.amount * 100) / 100,
+        note: typeof e.note === 'string' ? String(e.note).slice(0, 200) : '',
+        amount: amt,
         balanceAfter: 0
       });
     }
@@ -490,7 +498,11 @@
     } catch (e) { return []; }
   }
 
-  function savePending() { lsSet(PENDING_KEY, JSON.stringify(pending)); }
+  function savePending() {
+    pendingGen++;
+    pendingDirty = !lsSet(PENDING_KEY, JSON.stringify(pending));
+    if (pendingDirty) showError('Could not save queued changes - device storage may be full.');
+  }
 
   function loadSession() {
     var raw = lsGet(SESSION_KEY);
@@ -542,11 +554,16 @@
     }).then(function (res) {
       if (!res.ok) {
         return res.json().catch(function () { return {}; }).then(function () {
-          if (res.status === 400 || res.status === 401) signOut(true);
+          // Only act if this refresh still belongs to the current session -
+          // the user may have signed out while the request was in flight.
+          if (session && session.refresh_token === rt && (res.status === 400 || res.status === 401)) signOut(true);
           throw new Error('refresh failed');
         });
       }
-      return res.json().then(function (body) { storeTokenResponse(body); });
+      return res.json().then(function (body) {
+        if (!session || session.refresh_token !== rt) throw new Error('stale refresh');
+        storeTokenResponse(body);
+      });
     }).finally(function () { refreshing = null; });
     return refreshing;
   }
@@ -598,8 +615,10 @@
           savePending();
           return next();
         }
-        if (res.status >= 400 && res.status < 500) {
-          // permanently rejected (bad data) - drop it rather than jam the queue
+        // Only codes that genuinely mean "the server will never accept this"
+        // may drop an op. Everything else (429 rate limit, 408, a second 401,
+        // 5xx) is transient: keep the op queued and retry on the next cycle.
+        if (res.status === 400 || res.status === 404 || res.status === 422) {
           pending.shift();
           savePending();
           return next();
@@ -611,12 +630,14 @@
   }
 
   function pullEntries() {
+    var gen = pendingGen; // queue state when this pull was issued
     return apiFetch('/rest/v1/entries?select=id,date,note,amount_cents&order=date.asc,created_at.asc', {
       method: 'GET', headers: { 'Content-Type': 'application/json' }
     }).then(function (res) {
       if (!res.ok) throw new Error('pull failed: ' + res.status);
       return res.json();
     }).then(function (rows) {
+      if (gen !== pendingGen) return; // queue changed mid-flight: snapshot is stale, next cycle reconciles
       var server = [];
       for (var i = 0; i < rows.length; i++) {
         var r = rows[i];
@@ -752,6 +773,10 @@
   }
 
   function syncNow() {
+    if (pendingDirty) {
+      savePending();
+      if (!pendingDirty) clearError();
+    }
     if (!session || migrationServer) return Promise.resolve();
     setSyncStatus('busy');
     return flushPending().then(pullEntries).then(function () {
@@ -829,6 +854,7 @@
         storeTokenResponse(body, c.email);
         lsSet(EMAIL_KEY, c.email);
         lsDel(LOCALONLY_KEY);
+        reconcileQueueOwner(c.email);
         showMain();
         render();
         startSyncLoop();
@@ -858,6 +884,7 @@
         if (body.access_token) {
           storeTokenResponse(body, c.email);
           lsDel(LOCALONLY_KEY);
+          reconcileQueueOwner(c.email);
           showMain();
           render();
           startSyncLoop();
@@ -891,14 +918,33 @@
   }
 
   function signOut(expired) {
+    var email = session && session.email;
     session = null;
     saveSession();
-    pending = [];
-    savePending();
-    lsDel(SYNCED_ONCE_KEY);
+    if (expired && pending.length) {
+      // Session died mid-work: KEEP the queue so nothing is lost. It resumes
+      // when the same account signs back in (ops are idempotent).
+      lsSet(PENDING_OWNER_KEY, email || '');
+    } else {
+      pending = [];
+      savePending();
+      lsDel(PENDING_OWNER_KEY);
+      lsDel(SYNCED_ONCE_KEY);
+    }
     if (syncTimer) { clearInterval(syncTimer); syncTimer = null; }
     showAuth();
     if (expired) setAuthMsg('Your session expired - please sign in again.', false);
+  }
+
+  // A different account must never inherit the previous account's queue.
+  function reconcileQueueOwner(email) {
+    var owner = lsGet(PENDING_OWNER_KEY);
+    lsDel(PENDING_OWNER_KEY);
+    if (owner !== null && owner !== email) {
+      pending = [];
+      savePending();
+      lsDel(SYNCED_ONCE_KEY);
+    }
   }
 
   $('signInBtn').addEventListener('click', signIn);
@@ -1152,6 +1198,12 @@
       return;
     }
     var delta = cents - totalCents();
+    if (Math.abs(delta) > MAX_CENTS) {
+      sheetError.textContent = 'That change is too large for one adjustment.';
+      sheetInput.focus();
+      sheetInput.select();
+      return;
+    }
     closeSheet();
     if (delta === 0) return;
     addEntry(delta, 'Balance set to ' + fmtMoney(cents));
@@ -1255,8 +1307,19 @@
   }
 
   function doImport(incoming) {
+    if (!session) { applyImport(incoming); return; }
+    // "Replace the account" must see the FULL server state first, or rows this
+    // device never pulled would survive and re-merge on top of the backup.
+    flushPending().then(pullEntries).then(function () {
+      applyImport(incoming);
+      syncNow();
+    }).catch(function () {
+      showImportBar("Can't replace your account data while offline. Reconnect and try again.", null);
+    });
+  }
+
+  function applyImport(incoming) {
     if (session) {
-      // replace cloud too: delete everything we know about, insert the backup
       var i;
       for (i = 0; i < entries.length; i++) {
         pending.push({ op: 'delete', id: entries[i].id });
@@ -1270,7 +1333,6 @@
     saveLocal();
     render();
     hideImportBar();
-    if (session) syncNow();
   }
 
   function hideImportBar() {

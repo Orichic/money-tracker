@@ -4,6 +4,13 @@ The phone version of Money Tracker - a single-page web app with the same dark
 design as the Windows app. Add it to your iPhone home screen and it works like
 a regular app, including offline.
 
+Sign in with the same account here and in the Windows app and your balance and
+history stay in sync on both, usually within a few seconds. Entries are stored
+under your account in a private database protected by row-level security - the
+keys visible in this public code identify the database but grant no access to
+anyone's data. You can also tap "Use without an account" to keep everything on
+the phone only.
+
 ## Add it to your iPhone
 
 1. Open the app's URL in **Safari** on your iPhone.
