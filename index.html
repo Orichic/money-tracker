@@ -236,6 +236,15 @@
   .p-edit .plain { background: var(--input); color: var(--text); border: 1px solid var(--border); }
   .p-edit .perr { color: var(--red); font-size: 13px; min-height: 18px; margin-top: 6px; }
   .p-edit .pmsg { font-size: 14px; margin-bottom: 4px; line-height: 1.5; }
+  #drawerTotal {
+    border-top: 1px solid var(--divider); margin-top: 8px;
+    padding: 12px 18px 2px;
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  #drawerTotal .dt-cap { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; color: var(--dim); }
+  #drawerTotal .dt-amt { font-size: 16px; font-weight: 600; }
+  #drawerTotal .dt-amt.pos { color: var(--green); }
+  #drawerTotal .dt-amt.neg { color: var(--red); }
   #addProfileBtn {
     margin: 12px 18px 0; border: none; border-radius: 10px; padding: 13px;
     font-size: 15px; font-weight: 600; font-family: inherit;
@@ -368,6 +377,10 @@
   <div id="drawer">
     <div class="drawer-head">PROFILES</div>
     <div id="profileList"></div>
+    <div id="drawerTotal">
+      <span class="dt-cap">COMBINED TOTAL</span>
+      <span class="dt-amt" id="drawerTotalAmt">$0.00</span>
+    </div>
     <div id="addProfileRow" class="p-edit">
       <input id="newProfileName" autocomplete="off" maxlength="50" placeholder="Profile name">
       <div class="perr" id="newProfileErr"></div>
@@ -521,18 +534,19 @@
       var main;
       if (atBoot && synced) {
         var prov = lsGet(PROVISIONAL_KEY);
-        main = { id: (prov && UUID_RE.test(prov)) ? prov : uuid(), name: 'Main' };
+        main = { id: (prov && UUID_RE.test(prov)) ? prov : uuid(), name: 'Main', position: 0 };
         provisionalProfileId = main.id;
         lsSet(PROVISIONAL_KEY, main.id);
       } else {
-        main = { id: uuid(), name: 'Main' };
+        main = { id: uuid(), name: 'Main', position: 0 };
         if (synced) {
-          pending.push({ op: 'pinsert', profile: { id: main.id, name: main.name } });
+          pending.push({ op: 'pinsert', profile: { id: main.id, name: main.name, position: 0 } });
           savePending();
         }
       }
       profiles.push(main);
     }
+    sortProfiles();
     var known = {};
     for (var i = 0; i < profiles.length; i++) known[profiles[i].id] = true;
     var first = profiles[0].id;
@@ -557,6 +571,15 @@
       if (profiles[i].id === id) return profiles[i];
     }
     return null;
+  }
+
+  // Stable ordering by the user's chosen positions.
+  function sortProfiles() {
+    profiles.sort(function (a, b) {
+      var c = (a.position || 0) - (b.position || 0);
+      if (c !== 0) return c;
+      return (a.id || '') < (b.id || '') ? -1 : 1;
+    });
   }
 
   function uuid() {
@@ -623,7 +646,8 @@
         var p = data.profiles[k];
         if (!p || typeof p.id !== 'string' || !UUID_RE.test(p.id)) continue;
         var nm = typeof p.name === 'string' ? p.name.slice(0, 50) : '';
-        profs.push({ id: p.id.toLowerCase(), name: nm || 'Profile' });
+        var pos = (typeof p.position === 'number' && isFinite(p.position)) ? Math.floor(p.position) : 0;
+        profs.push({ id: p.id.toLowerCase(), name: nm || 'Profile', position: pos });
       }
     }
     var out = [];
@@ -782,7 +806,13 @@
         req = apiFetch('/rest/v1/profiles?on_conflict=id', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
-          body: JSON.stringify([{ id: op.profile.id, name: op.profile.name || 'Profile' }])
+          body: JSON.stringify([{ id: op.profile.id, name: op.profile.name || 'Profile', position: op.profile.position || 0 }])
+        });
+      } else if (op.op === 'pmove') {
+        req = apiFetch('/rest/v1/profiles?id=eq.' + encodeURIComponent(op.id), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ position: op.position || 0 })
         });
       } else if (op.op === 'prename') {
         req = apiFetch('/rest/v1/profiles?id=eq.' + encodeURIComponent(op.id), {
@@ -820,7 +850,7 @@
 
   function pullEntries() {
     var gen = pendingGen; // queue state when this pull was issued
-    return apiFetch('/rest/v1/profiles?select=id,name&order=created_at.asc', {
+    return apiFetch('/rest/v1/profiles?select=id,name,position&order=position.asc,created_at.asc', {
       method: 'GET', headers: { 'Content-Type': 'application/json' }
     }).then(function (res) {
       if (!res.ok) throw new Error('profile pull failed: ' + res.status);
@@ -837,7 +867,11 @@
         for (var k = 0; k < profRows.length; k++) {
           var pr = profRows[k];
           if (!pr || !pr.id) continue;
-          serverProfiles.push({ id: String(pr.id), name: typeof pr.name === 'string' && pr.name ? pr.name : 'Profile' });
+          serverProfiles.push({
+            id: String(pr.id),
+            name: typeof pr.name === 'string' && pr.name ? pr.name : 'Profile',
+            position: (typeof pr.position === 'number' && isFinite(pr.position)) ? pr.position : 0
+          });
         }
         var server = [];
         for (var i = 0; i < rows.length; i++) {
@@ -864,7 +898,7 @@
     for (i = 0; i < server.length; i++) byId[server[i].id] = true;
     for (i = 0; i < serverProfiles.length; i++) byProfId[serverProfiles[i].id] = true;
 
-    var deletes = {}, profDeletes = {}, profRenames = {};
+    var deletes = {}, profDeletes = {}, profRenames = {}, profMoves = {};
     var inserts = [], profInserts = [];
     for (i = 0; i < pending.length; i++) {
       var p = pending[i];
@@ -872,6 +906,7 @@
       else if (p.op === 'insert') inserts.push(p);
       else if (p.op === 'pdelete') profDeletes[p.id] = true;
       else if (p.op === 'prename') profRenames[p.id] = p.name;
+      else if (p.op === 'pmove') profMoves[p.id] = p.position;
       else if (p.op === 'pinsert') profInserts.push(p);
     }
 
@@ -880,6 +915,7 @@
       var sp = serverProfiles[i];
       if (profDeletes[sp.id]) continue;
       if (profRenames[sp.id]) sp.name = profRenames[sp.id];
+      if (profMoves[sp.id] !== undefined) sp.position = profMoves[sp.id];
       mergedProfiles.push(sp);
     }
     for (i = 0; i < profInserts.length; i++) {
@@ -887,7 +923,8 @@
       if (byProfId[pi.profile.id] || profDeletes[pi.profile.id]) continue;
       mergedProfiles.push({
         id: pi.profile.id,
-        name: profRenames[pi.profile.id] || pi.profile.name || 'Profile'
+        name: profRenames[pi.profile.id] || pi.profile.name || 'Profile',
+        position: profMoves[pi.profile.id] !== undefined ? profMoves[pi.profile.id] : (pi.profile.position || 0)
       });
     }
 
@@ -942,7 +979,7 @@
     lsDel(PROVISIONAL_KEY);
     var i;
     for (i = 0; i < profiles.length; i++) {
-      pending.push({ op: 'pinsert', profile: { id: profiles[i].id, name: profiles[i].name } });
+      pending.push({ op: 'pinsert', profile: { id: profiles[i].id, name: profiles[i].name, position: profiles[i].position || 0 } });
     }
     for (i = 0; i < entries.length; i++) {
       pending.push({ op: 'insert', entry: { id: entries[i].id, profileId: entries[i].profileId, date: entries[i].date, note: entries[i].note, amount: entries[i].amount } });
@@ -1363,10 +1400,15 @@
   function renderDrawer() {
     var listBox = $('profileList');
     listBox.textContent = '';
+    sortProfiles();
     for (var i = 0; i < profiles.length; i++) {
       listBox.appendChild(buildProfileRow(profiles[i]));
       if (drawerEdit === profiles[i].id) listBox.appendChild(buildProfileEdit(profiles[i]));
     }
+    var grand = allCents();
+    var amt = $('drawerTotalAmt');
+    amt.textContent = fmtMoney(grand);
+    amt.className = 'dt-amt' + (grand > 0 ? ' pos' : (grand < 0 ? ' neg' : ''));
   }
 
   function buildProfileRow(p) {
@@ -1449,6 +1491,27 @@
 
     var btns = document.createElement('div');
     btns.className = 'p-btns';
+
+    sortProfiles();
+    var idx = -1;
+    for (var pi = 0; pi < profiles.length; pi++) {
+      if (profiles[pi].id === p.id) { idx = pi; break; }
+    }
+    var up = document.createElement('button');
+    up.className = 'plain';
+    up.textContent = '▲ Up';
+    up.disabled = idx <= 0;
+    if (up.disabled) up.style.opacity = '0.45';
+    up.addEventListener('click', function () { moveProfileTab(p.id, -1); });
+    var down = document.createElement('button');
+    down.className = 'plain';
+    down.textContent = '▼ Down';
+    down.disabled = idx < 0 || idx >= profiles.length - 1;
+    if (down.disabled) down.style.opacity = '0.45';
+    down.addEventListener('click', function () { moveProfileTab(p.id, 1); });
+    btns.appendChild(up);
+    btns.appendChild(down);
+
     var save = document.createElement('button');
     save.className = 'save';
     save.textContent = 'Rename';
@@ -1494,6 +1557,36 @@
     box.appendChild(err);
     box.appendChild(btns);
     return box;
+  }
+
+  // Swap the profile with its neighbor, renumber 0..n-1, and sync only the
+  // positions that actually changed.
+  function moveProfileTab(id, direction) {
+    var p = profileById(id);
+    if (!p) { renderDrawer(); return; }
+    sortProfiles();
+    var idx = profiles.indexOf(p);
+    var other = idx + direction;
+    if (idx < 0 || other < 0 || other >= profiles.length) return;
+    profiles[idx] = profiles[other];
+    profiles[other] = p;
+
+    var synced = session && lsGet(SYNCED_ONCE_KEY);
+    var changed = false;
+    for (var i = 0; i < profiles.length; i++) {
+      if (profiles[i].position === i) continue;
+      profiles[i].position = i;
+      changed = true;
+      if (synced && profiles[i].id !== provisionalProfileId) {
+        pending.push({ op: 'pmove', id: profiles[i].id, position: i });
+      }
+    }
+    if (changed) {
+      saveLocal();
+      if (synced) { savePending(); syncNow(); }
+    }
+    render();
+    renderDrawer();
   }
 
   function deleteProfileTab(p) {
@@ -1544,13 +1637,18 @@
   $('createProfileBtn').addEventListener('click', function () {
     var v = $('newProfileName').value.trim();
     if (!v) { $('newProfileErr').textContent = 'Type a name first.'; return; }
-    var p = { id: uuid(), name: v.slice(0, 50) };
+    var maxPos = -1;
+    for (var i = 0; i < profiles.length; i++) {
+      if ((profiles[i].position || 0) > maxPos) maxPos = profiles[i].position || 0;
+    }
+    var p = { id: uuid(), name: v.slice(0, 50), position: maxPos + 1 };
     profiles.push(p);
+    sortProfiles();
     selectedProfileId = p.id;
     lsSet(SELECTED_KEY, p.id);
     saveLocal();
     if (session && lsGet(SYNCED_ONCE_KEY)) {
-      pending.push({ op: 'pinsert', profile: { id: p.id, name: p.name } });
+      pending.push({ op: 'pinsert', profile: { id: p.id, name: p.name, position: p.position } });
       savePending();
       syncNow();
     }
@@ -1840,7 +1938,7 @@
         pending.push({ op: 'pdelete', id: profiles[i].id });
       }
       for (i = 0; i < incoming.profiles.length; i++) {
-        pending.push({ op: 'pinsert', profile: { id: incoming.profiles[i].id, name: incoming.profiles[i].name } });
+        pending.push({ op: 'pinsert', profile: { id: incoming.profiles[i].id, name: incoming.profiles[i].name, position: incoming.profiles[i].position || 0 } });
       }
       for (i = 0; i < incoming.entries.length; i++) {
         var e = incoming.entries[i];
