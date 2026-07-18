@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Money">
+<meta name="theme-color" content="#14161C">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>Money Tracker</title>
+<style>
+  :root {
+    --bg: #14161C;
+    --card: #1C1F27;
+    --input: #262A34;
+    --border: #363B48;
+    --focus: #5684C8;
+    --divider: #282C36;
+    --text: #ECEEF1;
+    --dim: #989EA9;
+    --green: #4ADE80;
+    --red: #F87171;
+    --greenbtn: #147A41;
+    --redbtn: #BE3A3A;
+    --link: #70B2FF;
+    --accent: #2F6FD8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { background: var(--bg); }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: var(--text);
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .wrap { max-width: 520px; margin: 0 auto; }
+
+  header { padding: 22px 20px 18px; }
+  .cap-row { display: flex; justify-content: space-between; align-items: baseline; }
+  .caption { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--dim); }
+  .linkbtn {
+    background: none; border: none; color: var(--link); font-size: 15px;
+    font-family: inherit; cursor: pointer; padding: 8px 0 8px 16px; min-height: 44px;
+  }
+  #balance { font-size: clamp(28px, 10vw, 44px); font-weight: 700; margin-top: 6px; overflow-wrap: anywhere; }
+  #balance.pos { color: var(--green); }
+  #balance.neg { color: var(--red); }
+  #updated { color: var(--dim); font-size: 13px; margin-top: 8px; }
+
+  .card { background: var(--card); padding: 16px 20px 14px; }
+  .fields { display: flex; gap: 12px; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.amount { flex: 0 0 34%; }
+  .field.note { flex: 1 1 auto; min-width: 0; }
+  .field label { font-size: 13px; color: var(--dim); }
+  .field input {
+    width: 100%;
+    background: var(--input); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px; font-size: 16px; font-family: inherit;
+    outline: none; -webkit-appearance: none; appearance: none;
+  }
+  .field input:focus { border-color: var(--focus); }
+  .field.amount input { text-align: right; }
+  .btns { display: flex; gap: 12px; margin-top: 14px; }
+  .btns button {
+    flex: 1 1 50%; border: none; border-radius: 10px; padding: 14px 4px;
+    font-size: 15px; font-weight: 600; font-family: inherit; color: #fff; cursor: pointer;
+    min-height: 48px;
+  }
+  .btns .income { background: var(--greenbtn); }
+  .btns .expense { background: var(--redbtn); }
+  .btns button:active { filter: brightness(1.2); }
+  #error { color: var(--red); font-size: 14px; min-height: 20px; margin-top: 10px; }
+
+  .hist-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 18px 20px 10px;
+  }
+  .hist-head h2 { font-size: 17px; font-weight: 600; }
+  #count { color: var(--dim); font-size: 13px; }
+
+  #list { padding: 0 20px 8px; }
+  .row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 0; border-bottom: 1px solid var(--divider);
+  }
+  .row .info { flex: 1 1 auto; min-width: 0; }
+  .row .date { color: var(--dim); font-size: 12.5px; }
+  .row .note { font-size: 15.5px; margin-top: 3px; overflow-wrap: anywhere; }
+  .row .note.none { color: var(--dim); }
+  .row .nums { text-align: right; flex: 0 0 auto; }
+  .row .amt { font-size: 15.5px; font-weight: 600; }
+  .row .amt.pos { color: var(--green); }
+  .row .amt.neg { color: var(--red); }
+  .row .bal { color: var(--dim); font-size: 12.5px; margin-top: 3px; }
+  .row .del {
+    background: none; border: none; color: var(--dim); font-size: 19px;
+    padding: 12px; min-width: 44px; min-height: 44px;
+    cursor: pointer; font-family: inherit; line-height: 1;
+  }
+  .row .confirm { display: flex; align-items: center; gap: 16px; flex: 1 1 auto; flex-wrap: wrap; }
+  .row .confirm span { font-size: 14.5px; }
+  .row .confirm button {
+    border: none; border-radius: 8px; padding: 12px 18px; font-size: 14px;
+    font-weight: 600; font-family: inherit; cursor: pointer; min-height: 44px;
+  }
+  .row .confirm .yes { background: var(--redbtn); color: #fff; }
+  .row .confirm .no { background: var(--input); color: var(--text); border: 1px solid var(--border); }
+
+  #empty { color: var(--dim); text-align: center; padding: 48px 24px; font-size: 15px; line-height: 1.7; }
+
+  footer { padding: 18px 20px calc(26px + env(safe-area-inset-bottom)); text-align: center; }
+  footer .links { display: flex; justify-content: center; gap: 22px; }
+  footer .note { color: var(--dim); font-size: 12px; margin-top: 10px; }
+  #importBar {
+    display: none; margin-top: 12px; padding: 12px; background: var(--card);
+    border: 1px solid var(--border); border-radius: 10px; font-size: 14px;
+  }
+  #importBar.show { display: block; }
+  #importBar .confirm-btns { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+  #importBar button {
+    border: none; border-radius: 8px; padding: 12px 18px; font-size: 14px;
+    font-weight: 600; font-family: inherit; cursor: pointer; min-height: 44px;
+  }
+  #safariTip {
+    display: none; margin: 0 20px 6px; padding: 12px 14px;
+    background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+    color: var(--dim); font-size: 13px; line-height: 1.55;
+  }
+  #safariTip.show { display: flex; gap: 8px; align-items: flex-start; }
+  #safariTip .x {
+    background: none; border: none; color: var(--dim); font-size: 16px;
+    padding: 4px 8px; cursor: pointer; margin-left: auto; font-family: inherit;
+  }
+  #importBar .yes { background: var(--accent); color: #fff; }
+  #importBar .no { background: var(--input); color: var(--text); border: 1px solid var(--border); }
+
+  /* Set Balance sheet */
+  #overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+    z-index: 10; align-items: flex-end; justify-content: center;
+  }
+  #overlay.show { display: flex; }
+  #sheet {
+    background: var(--card); width: 100%; max-width: 520px;
+    border-radius: 18px 18px 0 0; padding: 22px 20px calc(24px + env(safe-area-inset-bottom));
+    transition: transform 0.15s ease;
+  }
+  #sheet .sheet-row { display: flex; gap: 10px; }
+  #sheet .sheet-row input { flex: 1 1 auto; min-width: 0; }
+  #signBtn {
+    flex: 0 0 54px; background: var(--input); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px;
+    font-size: 19px; font-family: inherit; cursor: pointer; min-height: 44px;
+  }
+  #sheet h2 { font-size: 17px; margin-bottom: 14px; }
+  #sheet label { font-size: 13px; color: var(--dim); display: block; margin-bottom: 6px; }
+  #sheet input {
+    width: 100%; background: var(--input); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px; font-size: 16px; font-family: inherit; outline: none;
+    -webkit-appearance: none; appearance: none;
+  }
+  #sheet input:focus { border-color: var(--focus); }
+  #sheetError { color: var(--red); font-size: 14px; min-height: 20px; margin-top: 8px; }
+  #sheet .sheet-btns { display: flex; gap: 12px; margin-top: 8px; }
+  #sheet .sheet-btns button {
+    flex: 1; border: none; border-radius: 10px; padding: 13px; font-size: 16px;
+    font-weight: 600; font-family: inherit; cursor: pointer;
+  }
+  #sheet .save { background: var(--accent); color: #fff; }
+  #sheet .cancel { background: var(--input); color: var(--text); border: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="cap-row">
+      <span class="caption">CURRENT BALANCE</span>
+      <button class="linkbtn" id="setBalBtn">Set balance</button>
+    </div>
+    <div id="balance">$0.00</div>
+    <div id="updated">No adjustments yet</div>
+  </header>
+
+  <div id="safariTip">
+    <span>Tip: add this page to your Home Screen (Share &#8594; Add to Home Screen) before entering
+    real data &mdash; entries made here in Safari won't carry over to the Home Screen app.</span>
+    <button class="x" id="tipClose" aria-label="Dismiss">&#10005;</button>
+  </div>
+
+  <div class="card">
+    <div class="fields">
+      <div class="field amount">
+        <label for="amount">Amount</label>
+        <input id="amount" inputmode="decimal" autocomplete="off" placeholder="0.00" maxlength="20">
+      </div>
+      <div class="field note">
+        <label for="note">Note (optional)</label>
+        <input id="note" autocomplete="off" placeholder="What was it for?" maxlength="200">
+      </div>
+    </div>
+    <div class="btns">
+      <button class="income" id="incomeBtn">+ Add Income</button>
+      <button class="expense" id="expenseBtn">&minus; Subtract Expense</button>
+    </div>
+    <div id="error"></div>
+  </div>
+
+  <div class="hist-head">
+    <h2>History</h2>
+    <span id="count">0 entries</span>
+  </div>
+  <div id="list"></div>
+  <div id="empty">No history yet.<br>Type an amount above, then tap<br>+ Add Income or &minus; Subtract Expense.</div>
+
+  <footer>
+    <div class="links">
+      <button class="linkbtn" id="exportBtn">Export backup</button>
+      <button class="linkbtn" id="importBtn">Import backup</button>
+    </div>
+    <input type="file" id="importFile" accept=".json,application/json" style="display:none">
+    <div id="importBar"></div>
+    <div class="note">Your data is stored on this device. Export a backup now and then to keep it safe.</div>
+  </footer>
+</div>
+
+<div id="overlay">
+  <div id="sheet">
+    <h2>Set Balance</h2>
+    <label for="sheetInput">Set your current balance to:</label>
+    <div class="sheet-row">
+      <input id="sheetInput" inputmode="decimal" autocomplete="off" maxlength="20">
+      <button type="button" id="signBtn" aria-label="Make negative or positive">&#177;</button>
+    </div>
+    <div id="sheetError"></div>
+    <div class="sheet-btns">
+      <button class="save" id="sheetSave">Save</button>
+      <button class="cancel" id="sheetCancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var KEY = 'moneytracker.v1';
+  var MAX_CENTS = 99999999900; // $999,999,999.00
+
+  var entries = [];   // [{date: iso string, note, amount: dollars, balanceAfter: dollars}]
+
+  var $ = function (id) { return document.getElementById(id); };
+  var balanceEl = $('balance'), updatedEl = $('updated'), errorEl = $('error');
+  var listEl = $('list'), emptyEl = $('empty'), countEl = $('count');
+  var amountEl = $('amount'), noteEl = $('note');
+
+  // ---------- money helpers (all math in integer cents) ----------
+
+  function toCents(dollars) { return Math.round(dollars * 100); }
+
+  // Exact string-to-cents conversion (no float multiply), rounding any third
+  // decimal digit half away from zero - matches the Windows app.
+  function centsFromString(s) {
+    var m = /^(-?)(\d*)(?:\.(\d*))?$/.exec(s);
+    if (!m || (!m[2] && !m[3])) return null;
+    var frac = m[3] || '';
+    var cents = Number(m[2] || '0') * 100 + Number((frac + '00').slice(0, 2));
+    if (frac.length > 2 && frac.charCodeAt(2) >= 53) cents += 1;
+    return m[1] ? -cents : cents;
+  }
+
+  function fmtMoney(cents) {
+    var neg = cents < 0;
+    var abs = Math.abs(cents);
+    var whole = Math.floor(abs / 100).toLocaleString('en-US');
+    var frac = String(abs % 100).padStart(2, '0');
+    return (neg ? '-$' : '$') + whole + '.' + frac;
+  }
+
+  function fmtSigned(cents) {
+    return (cents < 0 ? '- ' : '+ ') + fmtMoney(Math.abs(cents)).replace('-', '');
+  }
+
+  function totalCents() {
+    var t = 0;
+    for (var i = 0; i < entries.length; i++) t += toCents(entries[i].amount);
+    return t;
+  }
+
+  function recompute() {
+    var running = 0;
+    for (var i = 0; i < entries.length; i++) {
+      running += toCents(entries[i].amount);
+      entries[i].balanceAfter = running / 100;
+    }
+  }
+
+  // ---------- dates ----------
+
+  function parseIso(s) {
+    if (!s) return null;
+    // Trim >3 fractional-second digits (the Windows app writes 7).
+    var d = new Date(String(s).replace(/\.(\d{3})\d+/, '.$1'));
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function fmtDate(d) {
+    var mm = String(d.getMonth() + 1).padStart(2, '0');
+    var dd = String(d.getDate()).padStart(2, '0');
+    var h = d.getHours() % 12 || 12;
+    var min = String(d.getMinutes()).padStart(2, '0');
+    var ap = d.getHours() < 12 ? 'AM' : 'PM';
+    return mm + '-' + dd + '-' + d.getFullYear() + '  ' + h + ':' + min + ' ' + ap;
+  }
+
+  // ---------- storage (same JSON shape as the Windows app) ----------
+
+  function load() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return [];
+      var data = JSON.parse(raw);
+      return sanitize(data) || [];
+    } catch (e) { return []; }
+  }
+
+  // Returns null when the shape is wrong, an array (possibly empty) when valid.
+  function sanitize(data) {
+    if (!data || !Array.isArray(data.entries)) return null;
+    var out = [];
+    for (var i = 0; i < data.entries.length; i++) {
+      var e = data.entries[i];
+      if (!e || typeof e.amount !== 'number' || !isFinite(e.amount)) continue;
+      out.push({
+        date: typeof e.date === 'string' ? e.date : '',
+        note: typeof e.note === 'string' ? e.note : '',
+        amount: Math.round(e.amount * 100) / 100,
+        balanceAfter: 0
+      });
+    }
+    return out;
+  }
+
+  function save() {
+    recompute();
+    var data = {
+      version: 1,
+      balance: totalCents() / 100,
+      lastUpdated: entries.length ? entries[entries.length - 1].date : null,
+      entries: entries
+    };
+    try {
+      localStorage.setItem(KEY, JSON.stringify(data));
+    } catch (e) {
+      showError('Could not save - device storage may be full.');
+    }
+  }
+
+  // ---------- validation (mirrors the Windows app) ----------
+
+  function showError(msg) { errorEl.textContent = msg; }
+  function clearError() { errorEl.textContent = ''; }
+
+  function parseAmount(raw) {
+    raw = raw.trim();
+    var invalid = { err: '"' + raw + '" is not a valid amount. Try something like 25 or 1,250.50.' };
+    if (raw.length === 0) {
+      return { err: 'Type an amount first, then tap Add Income or Subtract Expense.' };
+    }
+    if (raw.indexOf(',') >= 0 && !/^\s*\$?\s*\d{1,3}(,\d{3})+(\.\d+)?\s*$/.test(raw)) {
+      return invalid;
+    }
+    // Allow a single leading "$"; reject any interior whitespace so "5 5"
+    // cannot silently become 55.
+    var cleaned = raw.replace(/^\$/, '').trim();
+    if (/\s/.test(cleaned)) return invalid;
+    cleaned = cleaned.replace(/,/g, '');
+    if (!/^-?\d*\.?\d+$/.test(cleaned)) return invalid;
+    var cents = centsFromString(cleaned);
+    if (cents === null) return invalid;
+    if (cents < 0) {
+      return { err: 'Enter a positive number, then use the Subtract Expense button for spending.' };
+    }
+    if (cents === 0) {
+      return { err: 'The amount must be more than zero.' };
+    }
+    if (cents > MAX_CENTS) {
+      return { err: 'That amount is too large.' };
+    }
+    return { cents: cents };
+  }
+
+  // ---------- actions ----------
+
+  function addEntry(cents, note) {
+    entries.push({
+      date: new Date().toISOString(),
+      note: note || '',
+      amount: cents / 100,
+      balanceAfter: 0
+    });
+    // Clear any stale validation message BEFORE saving, so a save-failure
+    // warning set inside save() stays visible.
+    clearError();
+    save();
+    render();
+    amountEl.value = '';
+    noteEl.value = '';
+  }
+
+  function onAdd(sign) {
+    var r = parseAmount(amountEl.value);
+    if (r.err) {
+      showError(r.err);
+      amountEl.focus();
+      return;
+    }
+    addEntry(sign * r.cents, noteEl.value.trim());
+  }
+
+  function deleteEntry(entry) {
+    var i = entries.indexOf(entry);
+    if (i >= 0) entries.splice(i, 1);
+    save();
+    render();
+  }
+
+  // ---------- rendering ----------
+
+  function render() {
+    var t = totalCents();
+    balanceEl.textContent = fmtMoney(t);
+    balanceEl.className = t > 0 ? 'pos' : (t < 0 ? 'neg' : '');
+
+    if (entries.length === 0) {
+      updatedEl.textContent = 'No adjustments yet';
+    } else {
+      var d = parseIso(entries[entries.length - 1].date);
+      updatedEl.textContent = d
+        ? 'Last updated ' + fmtDate(d).replace('  ', ' at ')
+        : 'Last updated ' + entries[entries.length - 1].date;
+    }
+
+    countEl.textContent = entries.length === 1 ? '1 entry' : entries.length + ' entries';
+
+    listEl.textContent = '';
+    emptyEl.style.display = entries.length ? 'none' : 'block';
+
+    for (var i = entries.length - 1; i >= 0; i--) {
+      listEl.appendChild(buildRow(entries[i]));
+    }
+  }
+
+  function buildRow(entry) {
+    var row = document.createElement('div');
+    row.className = 'row';
+
+    var info = document.createElement('div');
+    info.className = 'info';
+    var date = document.createElement('div');
+    date.className = 'date';
+    var d = parseIso(entry.date);
+    date.textContent = d ? fmtDate(d) : entry.date;
+    var note = document.createElement('div');
+    note.className = 'note' + (entry.note ? '' : ' none');
+    note.textContent = entry.note || '-';
+    info.appendChild(date);
+    info.appendChild(note);
+
+    var nums = document.createElement('div');
+    nums.className = 'nums';
+    var cents = toCents(entry.amount);
+    var amt = document.createElement('div');
+    amt.className = 'amt ' + (cents < 0 ? 'neg' : 'pos');
+    amt.textContent = fmtSigned(cents);
+    var bal = document.createElement('div');
+    bal.className = 'bal';
+    bal.textContent = fmtMoney(toCents(entry.balanceAfter));
+    nums.appendChild(amt);
+    nums.appendChild(bal);
+
+    var del = document.createElement('button');
+    del.className = 'del';
+    del.setAttribute('aria-label', 'Delete entry');
+    del.textContent = '✕';
+    del.addEventListener('click', function () { showConfirm(row, entry); });
+
+    row.appendChild(info);
+    row.appendChild(nums);
+    row.appendChild(del);
+    return row;
+  }
+
+  function showConfirm(row, entry) {
+    row.textContent = '';
+    var box = document.createElement('div');
+    box.className = 'confirm';
+    var span = document.createElement('span');
+    span.textContent = 'Delete this entry? Your balance will change by '
+      + fmtSigned(-toCents(entry.amount)) + '.';
+    var yes = document.createElement('button');
+    yes.className = 'yes';
+    yes.textContent = 'Delete';
+    yes.addEventListener('click', function () { deleteEntry(entry); });
+    var no = document.createElement('button');
+    no.className = 'no';
+    no.textContent = 'Cancel';
+    no.addEventListener('click', function () { render(); });
+    box.appendChild(span);
+    box.appendChild(yes);
+    box.appendChild(no);
+    row.appendChild(box);
+  }
+
+  // ---------- set balance sheet ----------
+
+  var overlay = $('overlay'), sheetEl = $('sheet'), sheetInput = $('sheetInput'), sheetError = $('sheetError');
+
+  function openSheet() {
+    sheetInput.value = (totalCents() / 100).toFixed(2);
+    sheetError.textContent = '';
+    overlay.classList.add('show');
+    // Synchronous focus keeps the user-gesture context, so iOS opens the
+    // keyboard and honors the text selection.
+    sheetInput.focus();
+    sheetInput.select();
+    adjustSheet();
+  }
+
+  function closeSheet() {
+    sheetInput.blur();
+    overlay.classList.remove('show');
+    sheetEl.style.transform = '';
+  }
+
+  // iOS overlays the keyboard without resizing the page, which would bury the
+  // sheet's buttons - lift the sheet by however much of the viewport is hidden.
+  function adjustSheet() {
+    if (!window.visualViewport) return;
+    var lift = 0;
+    if (overlay.classList.contains('show')) {
+      lift = Math.max(0, window.innerHeight - window.visualViewport.height - window.visualViewport.offsetTop);
+    }
+    sheetEl.style.transform = lift ? 'translateY(-' + lift + 'px)' : '';
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', adjustSheet);
+    window.visualViewport.addEventListener('scroll', adjustSheet);
+  }
+
+  $('setBalBtn').addEventListener('click', openSheet);
+  $('sheetCancel').addEventListener('click', closeSheet);
+
+  // A tap outside while typing should dismiss the keyboard, not throw the
+  // input away. Sample focus on pointerdown - iOS blurs before 'click' fires.
+  var typingTap = false;
+  overlay.addEventListener('pointerdown', function (e) {
+    typingTap = (e.target === overlay && document.activeElement === sheetInput);
+  });
+  overlay.addEventListener('click', function (e) {
+    if (e.target === overlay && !typingTap) closeSheet();
+    typingTap = false;
+  });
+
+  sheetInput.addEventListener('input', function () { sheetError.textContent = ''; });
+
+  // The iOS decimal keypad has no minus key, so overdrawn balances need an
+  // explicit sign toggle.
+  $('signBtn').addEventListener('click', function () {
+    var v = sheetInput.value;
+    sheetInput.value = v.charAt(0) === '-' ? v.slice(1) : '-' + v;
+    sheetError.textContent = '';
+  });
+
+  $('sheetSave').addEventListener('click', function () {
+    var raw = sheetInput.value.trim();
+    var ok = raw.indexOf(',') >= 0
+      ? /^\s*-?\$?\s*\d{1,3}(,\d{3})+(\.\d+)?\s*$/.test(raw)
+      : /^\s*-?\$?\s*\d*\.?\d+\s*$/.test(raw);
+    var cents = null;
+    if (ok) {
+      var neg = raw.charAt(0) === '-';
+      var cleaned = (neg ? raw.slice(1) : raw).trim().replace(/^\$/, '').trim().replace(/,/g, '');
+      cents = centsFromString(cleaned);
+      if (cents !== null && neg) cents = -cents;
+    }
+    if (cents === null || Math.abs(cents) > MAX_CENTS) {
+      sheetError.textContent = 'Enter a valid amount, like 1250.50.';
+      sheetInput.focus();
+      sheetInput.select();
+      return;
+    }
+    var delta = cents - totalCents();
+    closeSheet();
+    if (delta === 0) return;
+    addEntry(delta, 'Balance set to ' + fmtMoney(cents));
+  });
+
+  // ---------- export / import ----------
+
+  var lastExportUrl = null;
+  window.addEventListener('pagehide', function () {
+    if (lastExportUrl) {
+      try { URL.revokeObjectURL(lastExportUrl); } catch (e) { }
+      lastExportUrl = null;
+    }
+  });
+
+  $('exportBtn').addEventListener('click', function () {
+    recompute();
+    var data = {
+      version: 1,
+      balance: totalCents() / 100,
+      lastUpdated: entries.length ? entries[entries.length - 1].date : null,
+      entries: entries
+    };
+    var now = new Date();
+    var stamp = String(now.getMonth() + 1).padStart(2, '0') + '-'
+      + String(now.getDate()).padStart(2, '0') + '-' + now.getFullYear();
+    var name = 'MoneyTracker-backup-' + stamp + '.json';
+    var json = JSON.stringify(data, null, 2);
+
+    // Home-screen apps on iOS have no download manager, so use the share
+    // sheet there ("Save to Files"). Everything else gets a normal download.
+    if (navigator.standalone === true && navigator.canShare) {
+      var file = null;
+      try { file = new File([json], name, { type: 'application/json' }); }
+      catch (e) { }
+      if (file && navigator.canShare({ files: [file] })) {
+        navigator.share({ files: [file] }).catch(function () { });
+        return;
+      }
+    }
+
+    if (lastExportUrl) {
+      try { URL.revokeObjectURL(lastExportUrl); } catch (e) { }
+    }
+    var blob = new Blob([json], { type: 'application/json' });
+    lastExportUrl = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = lastExportUrl;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  });
+
+  var importBar = $('importBar'), importFile = $('importFile');
+
+  $('importBtn').addEventListener('click', function () {
+    importFile.value = '';
+    importFile.click();
+  });
+
+  importFile.addEventListener('change', function () {
+    var file = importFile.files && importFile.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var incoming;
+      try { incoming = sanitize(JSON.parse(String(reader.result))); }
+      catch (e) { incoming = null; }
+      if (!incoming) {
+        showImportBar('That file does not look like a Money Tracker backup.', null);
+        return;
+      }
+      showImportBar('Replace your current data with this backup (' + incoming.length
+        + (incoming.length === 1 ? ' entry' : ' entries') + ')?', incoming);
+    };
+    reader.readAsText(file);
+  });
+
+  function showImportBar(message, incoming) {
+    importBar.textContent = '';
+    importBar.classList.add('show');
+    var span = document.createElement('div');
+    span.textContent = message;
+    importBar.appendChild(span);
+    var btns = document.createElement('div');
+    btns.className = 'confirm-btns';
+    if (incoming) {
+      var yes = document.createElement('button');
+      yes.className = 'yes';
+      yes.textContent = 'Replace';
+      yes.addEventListener('click', function () {
+        entries = incoming;
+        save();
+        render();
+        hideImportBar();
+      });
+      btns.appendChild(yes);
+    }
+    var no = document.createElement('button');
+    no.className = 'no';
+    no.textContent = incoming ? 'Cancel' : 'OK';
+    no.addEventListener('click', hideImportBar);
+    btns.appendChild(no);
+    importBar.appendChild(btns);
+  }
+
+  function hideImportBar() {
+    importBar.classList.remove('show');
+    importBar.textContent = '';
+  }
+
+  // ---------- wire up ----------
+
+  $('incomeBtn').addEventListener('click', function () { onAdd(1); });
+  $('expenseBtn').addEventListener('click', function () { onAdd(-1); });
+  amountEl.addEventListener('input', clearError);
+  noteEl.addEventListener('input', clearError);
+  // Enter must not silently commit an income - move focus to the buttons so
+  // the user explicitly picks income or expense.
+  amountEl.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); $('incomeBtn').focus(); }
+  });
+
+  // Safari and the home-screen app keep SEPARATE copies of the data on iOS.
+  // Warn people trying the app in a Safari tab before they enter real entries.
+  var TIP_KEY = 'moneytracker.tip-dismissed';
+  var tipDismissed = false;
+  try { tipDismissed = !!localStorage.getItem(TIP_KEY); } catch (e) { }
+  if (/iPhone|iPad|iPod/.test(navigator.userAgent) && navigator.standalone === false && !tipDismissed) {
+    $('safariTip').classList.add('show');
+  }
+  $('tipClose').addEventListener('click', function () {
+    $('safariTip').classList.remove('show');
+    try { localStorage.setItem(TIP_KEY, '1'); } catch (e) { }
+  });
+
+  entries = load();
+  recompute();
+  render();
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(function () { /* offline support unavailable */ });
+  }
+})();
+</script>
+</body>
+</html>
