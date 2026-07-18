@@ -42,9 +42,14 @@
   #mainApp { display: none; }
   #mainApp.show { display: block; }
 
-  header { padding: 22px 20px 18px; }
-  .cap-row { display: flex; justify-content: space-between; align-items: baseline; }
-  .caption { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--dim); }
+  header { padding: 14px 20px 18px; }
+  .cap-row { display: flex; justify-content: space-between; align-items: center; }
+  .caption { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--dim); flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .menuBtn {
+    background: none; border: none; color: var(--text); font-size: 21px;
+    padding: 8px 14px 8px 0; min-height: 44px; min-width: 44px; cursor: pointer;
+    text-align: left; flex: 0 0 auto;
+  }
   .linkbtn {
     background: none; border: none; color: var(--link); font-size: 15px;
     font-family: inherit; cursor: pointer; padding: 8px 0 8px 16px; min-height: 44px;
@@ -188,6 +193,58 @@
   .auth-skip { text-align: center; margin-top: 18px; }
   .auth-note { color: var(--dim); font-size: 12px; text-align: center; margin-top: 22px; line-height: 1.6; }
 
+  /* Profiles drawer */
+  #drawerOverlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 20;
+  }
+  #drawerOverlay.show { display: block; }
+  #drawer {
+    position: absolute; top: 0; left: 0; bottom: 0; width: 80%; max-width: 320px;
+    background: var(--card); display: flex; flex-direction: column;
+    padding: calc(env(safe-area-inset-top) + 20px) 0 calc(env(safe-area-inset-bottom) + 14px);
+  }
+  .drawer-head {
+    font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--dim);
+    padding: 0 18px 12px;
+  }
+  #profileList { flex: 1 1 auto; overflow-y: auto; }
+  .p-row { display: flex; align-items: center; border-bottom: 1px solid var(--divider); }
+  .p-row.sel { background: var(--input); }
+  .p-main { flex: 1 1 auto; min-width: 0; padding: 11px 0 11px 18px; cursor: pointer; min-height: 44px; }
+  .p-name { font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+  .p-bal { font-size: 13px; margin-top: 2px; color: var(--dim); }
+  .p-bal.pos { color: var(--green); }
+  .p-bal.neg { color: var(--red); }
+  .p-more {
+    background: none; border: none; color: var(--dim); font-size: 20px;
+    padding: 12px 16px; min-width: 44px; min-height: 44px; cursor: pointer; font-family: inherit;
+  }
+  .p-edit { padding: 12px 18px 14px; border-bottom: 1px solid var(--divider); background: var(--bg); }
+  .p-edit input {
+    width: 100%; background: var(--input); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px; padding: 11px;
+    font-size: 16px; font-family: inherit; outline: none; -webkit-appearance: none; appearance: none;
+  }
+  .p-edit input:focus { border-color: var(--focus); }
+  .p-edit .p-btns { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+  .p-edit button {
+    border: none; border-radius: 8px; padding: 11px 16px; font-size: 14px;
+    font-weight: 600; font-family: inherit; min-height: 44px; cursor: pointer;
+  }
+  .p-edit .save { background: var(--accent); color: #fff; }
+  .p-edit .danger { background: var(--redbtn); color: #fff; }
+  .p-edit .plain { background: var(--input); color: var(--text); border: 1px solid var(--border); }
+  .p-edit .perr { color: var(--red); font-size: 13px; min-height: 18px; margin-top: 6px; }
+  .p-edit .pmsg { font-size: 14px; margin-bottom: 4px; line-height: 1.5; }
+  #addProfileBtn {
+    margin: 12px 18px 0; border: none; border-radius: 10px; padding: 13px;
+    font-size: 15px; font-weight: 600; font-family: inherit;
+    background: var(--input); color: var(--text); border: 1px solid var(--border);
+    min-height: 48px; cursor: pointer;
+  }
+  #addProfileRow { display: none; margin: 12px 18px 0; }
+  #addProfileRow.show { display: block; }
+
   /* Set Balance sheet */
   #overlay {
     display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55);
@@ -253,7 +310,8 @@
 <div class="wrap">
   <header>
     <div class="cap-row">
-      <span class="caption">CURRENT BALANCE</span>
+      <button class="menuBtn" id="menuBtn" aria-label="Profiles">&#9776;</button>
+      <span class="caption" id="caption">CURRENT BALANCE</span>
       <button class="linkbtn" id="setBalBtn">Set balance</button>
     </div>
     <div id="balance">$0.00</div>
@@ -306,6 +364,22 @@
 </div>
 </div>
 
+<div id="drawerOverlay">
+  <div id="drawer">
+    <div class="drawer-head">PROFILES</div>
+    <div id="profileList"></div>
+    <div id="addProfileRow" class="p-edit">
+      <input id="newProfileName" autocomplete="off" maxlength="50" placeholder="Profile name">
+      <div class="perr" id="newProfileErr"></div>
+      <div class="p-btns">
+        <button class="save" id="createProfileBtn">Create</button>
+        <button class="plain" id="cancelCreateBtn">Cancel</button>
+      </div>
+    </div>
+    <button id="addProfileBtn">+ Add profile</button>
+  </div>
+</div>
+
 <div id="overlay">
   <div id="sheet">
     <h2>Set Balance</h2>
@@ -337,13 +411,18 @@
   var LOCALONLY_KEY = 'moneytracker.localonly';
   var SYNCED_ONCE_KEY = 'moneytracker.synced-once';
   var PENDING_OWNER_KEY = 'moneytracker.pending-owner';
+  var SELECTED_KEY = 'moneytracker.selected';
   var PRESYNC_KEY = 'moneytracker.presync-backup';
   var EMAIL_KEY = 'moneytracker.email';
   var TIP_KEY = 'moneytracker.tip-dismissed';
   var MAX_CENTS = 99999999900; // $999,999,999.00
 
-  var entries = [];      // merged view: [{id, date, note, amount, balanceAfter}]
-  var pending = [];      // [{op:'insert', entry:{id,date,note,amount}} | {op:'delete', id}]
+  var entries = [];      // all entries across profiles: [{id, profileId, date, note, amount, balanceAfter}]
+  var profiles = [];     // profile tabs: [{id, name}]
+  var selectedProfileId = null;
+  var drawerEdit = null;    // profile id whose edit panel is open
+  var drawerConfirm = null; // profile id whose delete confirm is open
+  var pending = [];      // entry ops (insert/delete) + profile ops (pinsert/prename/pdelete)
   var session = null;    // {access_token, refresh_token, expires_at, email}
   var flushing = null;   // in-flight flush promise
   var refreshing = null; // in-flight token refresh promise
@@ -388,18 +467,72 @@
     return (cents < 0 ? '- ' : '+ ') + fmtMoney(Math.abs(cents)).replace('-', '');
   }
 
+  // Balance of the SELECTED profile (the number on screen).
   function totalCents() {
+    return balanceCentsOf(selectedProfileId);
+  }
+
+  function balanceCentsOf(profileId) {
+    var t = 0;
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i].profileId === profileId) t += toCents(entries[i].amount);
+    }
+    return t;
+  }
+
+  function allCents() {
     var t = 0;
     for (var i = 0; i < entries.length; i++) t += toCents(entries[i].amount);
     return t;
   }
 
-  function recompute() {
-    var running = 0;
+  function selectedEntries() {
+    var out = [];
     for (var i = 0; i < entries.length; i++) {
-      running += toCents(entries[i].amount);
-      entries[i].balanceAfter = running / 100;
+      if (entries[i].profileId === selectedProfileId) out.push(entries[i]);
     }
+    return out;
+  }
+
+  // Running balances are computed per profile, in date order.
+  function recompute() {
+    sortEntries(entries);
+    var running = {};
+    for (var i = 0; i < entries.length; i++) {
+      var pid = entries[i].profileId || '';
+      var r = (running[pid] || 0) + toCents(entries[i].amount);
+      running[pid] = r;
+      entries[i].balanceAfter = r / 100;
+    }
+  }
+
+  // Guarantees at least one profile, valid entry links, and a valid selection.
+  function ensureProfiles() {
+    if (!profiles.length) {
+      var main = { id: uuid(), name: 'Main' };
+      profiles.push(main);
+      if (session && lsGet(SYNCED_ONCE_KEY)) {
+        pending.push({ op: 'pinsert', profile: { id: main.id, name: main.name } });
+        savePending();
+      }
+    }
+    var known = {};
+    for (var i = 0; i < profiles.length; i++) known[profiles[i].id] = true;
+    var first = profiles[0].id;
+    for (var j = 0; j < entries.length; j++) {
+      if (!entries[j].profileId || !known[entries[j].profileId]) entries[j].profileId = first;
+    }
+    if (!selectedProfileId || !known[selectedProfileId]) {
+      selectedProfileId = lsGet(SELECTED_KEY);
+      if (!selectedProfileId || !known[selectedProfileId]) selectedProfileId = first;
+    }
+  }
+
+  function selectedProfile() {
+    for (var i = 0; i < profiles.length; i++) {
+      if (profiles[i].id === selectedProfileId) return profiles[i];
+    }
+    return profiles[0] || null;
   }
 
   function uuid() {
@@ -449,9 +582,9 @@
 
   function loadLocal() {
     var raw = lsGet(KEY);
-    if (!raw) return [];
-    try { return sanitize(JSON.parse(raw)) || []; }
-    catch (e) { return []; }
+    if (!raw) return { profiles: [], entries: [] };
+    try { return sanitize(JSON.parse(raw)) || { profiles: [], entries: [] }; }
+    catch (e) { return { profiles: [], entries: [] }; }
   }
 
   // Returns null when the shape is wrong, an array (possibly empty) when valid.
@@ -460,6 +593,15 @@
   var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   function sanitize(data) {
     if (!data || !Array.isArray(data.entries)) return null;
+    var profs = [];
+    if (Array.isArray(data.profiles)) {
+      for (var k = 0; k < data.profiles.length; k++) {
+        var p = data.profiles[k];
+        if (!p || typeof p.id !== 'string' || !UUID_RE.test(p.id)) continue;
+        var nm = typeof p.name === 'string' ? p.name.slice(0, 50) : '';
+        profs.push({ id: p.id.toLowerCase(), name: nm || 'Profile' });
+      }
+    }
     var out = [];
     for (var i = 0; i < data.entries.length; i++) {
       var e = data.entries[i];
@@ -468,21 +610,23 @@
       if (Math.abs(Math.round(amt * 100)) > MAX_CENTS) continue;
       out.push({
         id: (typeof e.id === 'string' && UUID_RE.test(e.id)) ? e.id.toLowerCase() : uuid(),
+        profileId: (typeof e.profileId === 'string' && UUID_RE.test(e.profileId)) ? e.profileId.toLowerCase() : null,
         date: typeof e.date === 'string' ? e.date : '',
         note: typeof e.note === 'string' ? String(e.note).slice(0, 200) : '',
         amount: amt,
         balanceAfter: 0
       });
     }
-    return out;
+    return { profiles: profs, entries: out };
   }
 
   function saveLocal() {
     recompute();
     var data = {
-      version: 1,
-      balance: totalCents() / 100,
+      version: 3,
+      balance: allCents() / 100,
       lastUpdated: entries.length ? entries[entries.length - 1].date : null,
+      profiles: profiles,
       entries: entries
     };
     try { localStorage.setItem(KEY, JSON.stringify(data)); }
@@ -596,18 +740,39 @@
       var op = pending[0];
       var req;
       if (op.op === 'insert') {
+        var row = {
+          id: op.entry.id,
+          date: op.entry.date,
+          note: op.entry.note || '',
+          amount_cents: toCents(op.entry.amount)
+        };
+        if (op.entry.profileId) row.profile_id = op.entry.profileId;
         req = apiFetch('/rest/v1/entries?on_conflict=id', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
-          body: JSON.stringify([{
-            id: op.entry.id,
-            date: op.entry.date,
-            note: op.entry.note || '',
-            amount_cents: toCents(op.entry.amount)
-          }])
+          body: JSON.stringify([row])
         });
-      } else {
+      } else if (op.op === 'delete') {
         req = apiFetch('/rest/v1/entries?id=eq.' + encodeURIComponent(op.id), { method: 'DELETE' });
+      } else if (op.op === 'pinsert') {
+        req = apiFetch('/rest/v1/profiles?on_conflict=id', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
+          body: JSON.stringify([{ id: op.profile.id, name: op.profile.name || 'Profile' }])
+        });
+      } else if (op.op === 'prename') {
+        req = apiFetch('/rest/v1/profiles?id=eq.' + encodeURIComponent(op.id), {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+          body: JSON.stringify({ name: op.name || 'Profile' })
+        });
+      } else if (op.op === 'pdelete') {
+        req = apiFetch('/rest/v1/profiles?id=eq.' + encodeURIComponent(op.id), { method: 'DELETE' });
+      } else {
+        // unknown op from a future version - drop it
+        pending.shift();
+        savePending();
+        return next();
       }
       return req.then(function (res) {
         if (res.ok || res.status === 409) {
@@ -631,72 +796,132 @@
 
   function pullEntries() {
     var gen = pendingGen; // queue state when this pull was issued
-    return apiFetch('/rest/v1/entries?select=id,date,note,amount_cents&order=date.asc,created_at.asc', {
+    return apiFetch('/rest/v1/profiles?select=id,name&order=created_at.asc', {
       method: 'GET', headers: { 'Content-Type': 'application/json' }
     }).then(function (res) {
-      if (!res.ok) throw new Error('pull failed: ' + res.status);
+      if (!res.ok) throw new Error('profile pull failed: ' + res.status);
       return res.json();
-    }).then(function (rows) {
-      if (gen !== pendingGen) return; // queue changed mid-flight: snapshot is stale, next cycle reconciles
-      var server = [];
-      for (var i = 0; i < rows.length; i++) {
-        var r = rows[i];
-        if (!r || typeof r.amount_cents !== 'number') continue;
-        server.push({
-          id: String(r.id),
-          date: String(r.date || ''),
-          note: typeof r.note === 'string' ? r.note : '',
-          amount: r.amount_cents / 100,
-          balanceAfter: 0
-        });
-      }
-      if (!lsGet(SYNCED_ONCE_KEY)) return firstSync(server);
-      applyServer(server);
+    }).then(function (profRows) {
+      return apiFetch('/rest/v1/entries?select=id,date,note,amount_cents,profile_id&order=date.asc,created_at.asc', {
+        method: 'GET', headers: { 'Content-Type': 'application/json' }
+      }).then(function (res) {
+        if (!res.ok) throw new Error('pull failed: ' + res.status);
+        return res.json();
+      }).then(function (rows) {
+        if (gen !== pendingGen) return; // queue changed mid-flight: snapshot is stale, next cycle reconciles
+        var serverProfiles = [];
+        for (var k = 0; k < profRows.length; k++) {
+          var pr = profRows[k];
+          if (!pr || !pr.id) continue;
+          serverProfiles.push({ id: String(pr.id), name: typeof pr.name === 'string' && pr.name ? pr.name : 'Profile' });
+        }
+        var server = [];
+        for (var i = 0; i < rows.length; i++) {
+          var r = rows[i];
+          if (!r || typeof r.amount_cents !== 'number') continue;
+          server.push({
+            id: String(r.id),
+            profileId: r.profile_id ? String(r.profile_id) : null,
+            date: String(r.date || ''),
+            note: typeof r.note === 'string' ? r.note : '',
+            amount: r.amount_cents / 100,
+            balanceAfter: 0
+          });
+        }
+        if (!lsGet(SYNCED_ONCE_KEY)) return firstSync(serverProfiles, server);
+        applyServer(serverProfiles, server);
+      });
     });
   }
 
-  // Merge the server list with whatever is still queued locally.
-  function applyServer(server) {
-    var byId = {}, i;
+  // Merge the server state with whatever is still queued locally.
+  function applyServer(serverProfiles, server) {
+    var byId = {}, byProfId = {}, i;
     for (i = 0; i < server.length; i++) byId[server[i].id] = true;
-    var deletes = {};
-    for (i = 0; i < pending.length; i++) {
-      if (pending[i].op === 'delete') deletes[pending[i].id] = true;
-    }
-    var merged = [];
-    for (i = 0; i < server.length; i++) {
-      if (!deletes[server[i].id]) merged.push(server[i]);
-    }
+    for (i = 0; i < serverProfiles.length; i++) byProfId[serverProfiles[i].id] = true;
+
+    var deletes = {}, profDeletes = {}, profRenames = {};
+    var inserts = [], profInserts = [];
     for (i = 0; i < pending.length; i++) {
       var p = pending[i];
-      if (p.op === 'insert' && !byId[p.entry.id] && !deletes[p.entry.id]) {
-        merged.push({ id: p.entry.id, date: p.entry.date, note: p.entry.note || '', amount: p.entry.amount, balanceAfter: 0 });
-      }
+      if (p.op === 'delete') deletes[p.id] = true;
+      else if (p.op === 'insert') inserts.push(p);
+      else if (p.op === 'pdelete') profDeletes[p.id] = true;
+      else if (p.op === 'prename') profRenames[p.id] = p.name;
+      else if (p.op === 'pinsert') profInserts.push(p);
     }
-    entries = sortEntries(merged);
+
+    var mergedProfiles = [];
+    for (i = 0; i < serverProfiles.length; i++) {
+      var sp = serverProfiles[i];
+      if (profDeletes[sp.id]) continue;
+      if (profRenames[sp.id]) sp.name = profRenames[sp.id];
+      mergedProfiles.push(sp);
+    }
+    for (i = 0; i < profInserts.length; i++) {
+      var pi = profInserts[i];
+      if (byProfId[pi.profile.id] || profDeletes[pi.profile.id]) continue;
+      mergedProfiles.push({
+        id: pi.profile.id,
+        name: profRenames[pi.profile.id] || pi.profile.name || 'Profile'
+      });
+    }
+
+    var mergedProfIds = {};
+    for (i = 0; i < mergedProfiles.length; i++) mergedProfIds[mergedProfiles[i].id] = true;
+
+    var merged = [];
+    for (i = 0; i < server.length; i++) {
+      var se = server[i];
+      if (deletes[se.id]) continue;
+      if (se.profileId && !mergedProfIds[se.profileId]) continue;
+      merged.push(se);
+    }
+    for (i = 0; i < inserts.length; i++) {
+      var pe = inserts[i];
+      if (byId[pe.entry.id] || deletes[pe.entry.id]) continue;
+      merged.push({
+        id: pe.entry.id, profileId: pe.entry.profileId || null,
+        date: pe.entry.date, note: pe.entry.note || '',
+        amount: pe.entry.amount, balanceAfter: 0
+      });
+    }
+
+    profiles = mergedProfiles;
+    entries = merged;
+    ensureProfiles();
+    lsSet(SELECTED_KEY, selectedProfileId);
     saveLocal();
     render();
   }
 
+  function enqueueAllLocal() {
+    var i;
+    for (i = 0; i < profiles.length; i++) {
+      pending.push({ op: 'pinsert', profile: { id: profiles[i].id, name: profiles[i].name } });
+    }
+    for (i = 0; i < entries.length; i++) {
+      pending.push({ op: 'insert', entry: { id: entries[i].id, profileId: entries[i].profileId, date: entries[i].date, note: entries[i].note, amount: entries[i].amount } });
+    }
+    savePending();
+  }
+
   // First sync on this device: decide what happens to pre-existing local data.
-  function firstSync(server) {
+  function firstSync(serverProfiles, server) {
     lsSet(PRESYNC_KEY, lsGet(KEY) || '');
     if (server.length === 0) {
-      // cloud is empty: upload everything local
-      for (var i = 0; i < entries.length; i++) {
-        pending.push({ op: 'insert', entry: { id: entries[i].id, date: entries[i].date, note: entries[i].note, amount: entries[i].amount } });
-      }
-      savePending();
+      // cloud has no entries: upload everything local
+      enqueueAllLocal();
       lsSet(SYNCED_ONCE_KEY, '1');
       return flushPending().then(pullEntries);
     }
     if (entries.length === 0) {
       lsSet(SYNCED_ONCE_KEY, '1');
-      applyServer(server);
+      applyServer(serverProfiles, server);
       return;
     }
     // both sides have data: let the user decide, inline
-    migrationServer = server;
+    migrationServer = { profiles: serverProfiles, entries: server };
     showMigrateBar();
   }
 
@@ -704,9 +929,10 @@
     var bar = $('migrateBar');
     bar.textContent = '';
     bar.classList.add('show');
+    var n = migrationServer.entries.length;
     var msg = document.createElement('div');
-    msg.textContent = 'Your account already has ' + migrationServer.length
-      + (migrationServer.length === 1 ? ' entry' : ' entries') + ' in the cloud, and this device has '
+    msg.textContent = 'Your account already has ' + n
+      + (n === 1 ? ' entry' : ' entries') + ' in the cloud, and this device has '
       + entries.length + ' of its own. What should happen to the ones on this device?';
     bar.appendChild(msg);
     var btns = document.createElement('div');
@@ -725,20 +951,18 @@
   }
 
   function finishMigration(addLocal) {
-    var server = migrationServer || [];
+    var stash = migrationServer || { profiles: [], entries: [] };
     migrationServer = null;
     $('migrateBar').classList.remove('show');
     $('migrateBar').textContent = '';
     if (addLocal) {
-      for (var i = 0; i < entries.length; i++) {
-        pending.push({ op: 'insert', entry: { id: entries[i].id, date: entries[i].date, note: entries[i].note, amount: entries[i].amount } });
-      }
-      savePending();
+      enqueueAllLocal();
     } else {
       entries = [];
+      profiles = [];
     }
     lsSet(SYNCED_ONCE_KEY, '1');
-    applyServer(server);
+    applyServer(stash.profiles, stash.entries);
     syncNow();
   }
 
@@ -997,17 +1221,17 @@
   function addEntry(cents, note) {
     var e = {
       id: uuid(),
+      profileId: selectedProfileId,
       date: new Date().toISOString(),
       note: note || '',
       amount: cents / 100,
       balanceAfter: 0
     };
     entries.push(e);
-    sortEntries(entries);
     clearError();
     saveLocal();
     if (session) {
-      pending.push({ op: 'insert', entry: { id: e.id, date: e.date, note: e.note, amount: e.amount } });
+      pending.push({ op: 'insert', entry: { id: e.id, profileId: e.profileId, date: e.date, note: e.note, amount: e.amount } });
       savePending();
       syncNow();
     }
@@ -1043,28 +1267,243 @@
   // ---------- rendering ----------
 
   function render() {
+    recompute();
+    var view = selectedEntries();
+    var prof = selectedProfile();
+    $('caption').textContent = prof ? prof.name.toUpperCase() : 'CURRENT BALANCE';
+
     var t = totalCents();
     balanceEl.textContent = fmtMoney(t);
     balanceEl.className = t > 0 ? 'pos' : (t < 0 ? 'neg' : '');
 
-    if (entries.length === 0) {
+    if (view.length === 0) {
       updatedEl.textContent = 'No adjustments yet';
     } else {
-      var d = parseIso(entries[entries.length - 1].date);
+      var d = parseIso(view[view.length - 1].date);
       updatedEl.textContent = d
         ? 'Last updated ' + fmtDate(d).replace('  ', ' at ')
-        : 'Last updated ' + entries[entries.length - 1].date;
+        : 'Last updated ' + view[view.length - 1].date;
     }
 
-    countEl.textContent = entries.length === 1 ? '1 entry' : entries.length + ' entries';
+    countEl.textContent = view.length === 1 ? '1 entry' : view.length + ' entries';
 
     listEl.textContent = '';
-    emptyEl.style.display = entries.length ? 'none' : 'block';
+    emptyEl.style.display = view.length ? 'none' : 'block';
 
-    for (var i = entries.length - 1; i >= 0; i--) {
-      listEl.appendChild(buildRow(entries[i]));
+    for (var i = view.length - 1; i >= 0; i--) {
+      listEl.appendChild(buildRow(view[i]));
     }
   }
+
+  // ---------- profiles drawer ----------
+
+  var drawerOverlay = $('drawerOverlay');
+
+  function openDrawer() {
+    drawerEdit = null;
+    drawerConfirm = null;
+    $('addProfileRow').classList.remove('show');
+    renderDrawer();
+    drawerOverlay.classList.add('show');
+  }
+
+  function closeDrawer() {
+    drawerOverlay.classList.remove('show');
+    drawerEdit = null;
+    drawerConfirm = null;
+  }
+
+  function renderDrawer() {
+    var listBox = $('profileList');
+    listBox.textContent = '';
+    for (var i = 0; i < profiles.length; i++) {
+      listBox.appendChild(buildProfileRow(profiles[i]));
+      if (drawerEdit === profiles[i].id) listBox.appendChild(buildProfileEdit(profiles[i]));
+    }
+  }
+
+  function buildProfileRow(p) {
+    var row = document.createElement('div');
+    row.className = 'p-row' + (p.id === selectedProfileId ? ' sel' : '');
+
+    var main = document.createElement('div');
+    main.className = 'p-main';
+    var nm = document.createElement('div');
+    nm.className = 'p-name';
+    nm.textContent = p.name;
+    var cents = balanceCentsOf(p.id);
+    var bal = document.createElement('div');
+    bal.className = 'p-bal' + (cents > 0 ? ' pos' : (cents < 0 ? ' neg' : ''));
+    bal.textContent = fmtMoney(cents);
+    main.appendChild(nm);
+    main.appendChild(bal);
+    main.addEventListener('click', function () {
+      selectedProfileId = p.id;
+      lsSet(SELECTED_KEY, p.id);
+      clearError();
+      render();
+      closeDrawer();
+    });
+
+    var more = document.createElement('button');
+    more.className = 'p-more';
+    more.setAttribute('aria-label', 'Edit profile');
+    more.textContent = '⋯';
+    more.addEventListener('click', function () {
+      drawerConfirm = null;
+      drawerEdit = drawerEdit === p.id ? null : p.id;
+      renderDrawer();
+    });
+
+    row.appendChild(main);
+    row.appendChild(more);
+    return row;
+  }
+
+  function buildProfileEdit(p) {
+    var box = document.createElement('div');
+    box.className = 'p-edit';
+
+    if (drawerConfirm === p.id) {
+      var n = 0;
+      for (var i = 0; i < entries.length; i++) {
+        if (entries[i].profileId === p.id) n++;
+      }
+      var msg = document.createElement('div');
+      msg.className = 'pmsg';
+      msg.textContent = 'Delete "' + p.name + '" and its ' + n + (n === 1 ? ' entry' : ' entries')
+        + '? This removes it on every synced device.';
+      var btns0 = document.createElement('div');
+      btns0.className = 'p-btns';
+      var yes = document.createElement('button');
+      yes.className = 'danger';
+      yes.textContent = 'Delete';
+      yes.addEventListener('click', function () { deleteProfileTab(p); });
+      var no = document.createElement('button');
+      no.className = 'plain';
+      no.textContent = 'Cancel';
+      no.addEventListener('click', function () { drawerConfirm = null; renderDrawer(); });
+      btns0.appendChild(yes);
+      btns0.appendChild(no);
+      box.appendChild(msg);
+      box.appendChild(btns0);
+      return box;
+    }
+
+    var input = document.createElement('input');
+    input.value = p.name;
+    input.maxLength = 50;
+    var err = document.createElement('div');
+    err.className = 'perr';
+    input.addEventListener('input', function () { err.textContent = ''; });
+
+    var btns = document.createElement('div');
+    btns.className = 'p-btns';
+    var save = document.createElement('button');
+    save.className = 'save';
+    save.textContent = 'Rename';
+    save.addEventListener('click', function () {
+      var v = input.value.trim();
+      if (!v) { err.textContent = 'Type a name first.'; return; }
+      if (v !== p.name) {
+        p.name = v.slice(0, 50);
+        saveLocal();
+        if (session && lsGet(SYNCED_ONCE_KEY)) {
+          pending.push({ op: 'prename', id: p.id, name: p.name });
+          savePending();
+          syncNow();
+        }
+        render();
+      }
+      drawerEdit = null;
+      renderDrawer();
+    });
+    var del = document.createElement('button');
+    del.className = 'danger';
+    del.textContent = 'Delete';
+    del.disabled = profiles.length <= 1;
+    if (profiles.length <= 1) del.style.opacity = '0.45';
+    del.addEventListener('click', function () {
+      if (profiles.length <= 1) { err.textContent = 'You need at least one profile.'; return; }
+      drawerConfirm = p.id;
+      renderDrawer();
+    });
+    var cancel = document.createElement('button');
+    cancel.className = 'plain';
+    cancel.textContent = 'Close';
+    cancel.addEventListener('click', function () { drawerEdit = null; renderDrawer(); });
+
+    btns.appendChild(save);
+    btns.appendChild(del);
+    btns.appendChild(cancel);
+    box.appendChild(input);
+    box.appendChild(err);
+    box.appendChild(btns);
+    return box;
+  }
+
+  function deleteProfileTab(p) {
+    if (profiles.length <= 1) return;
+    var pid = p.id;
+    var keptProfiles = [];
+    for (var i = 0; i < profiles.length; i++) {
+      if (profiles[i].id !== pid) keptProfiles.push(profiles[i]);
+    }
+    profiles = keptProfiles;
+    var keptEntries = [];
+    for (var j = 0; j < entries.length; j++) {
+      if (entries[j].profileId !== pid) keptEntries.push(entries[j]);
+    }
+    entries = keptEntries;
+    if (selectedProfileId === pid) {
+      selectedProfileId = profiles[0].id;
+      lsSet(SELECTED_KEY, selectedProfileId);
+    }
+    saveLocal();
+    if (session && lsGet(SYNCED_ONCE_KEY)) {
+      // the server cascades the profile's entries, so one op suffices
+      pending.push({ op: 'pdelete', id: pid });
+      savePending();
+      syncNow();
+    }
+    drawerEdit = null;
+    drawerConfirm = null;
+    render();
+    renderDrawer();
+  }
+
+  $('menuBtn').addEventListener('click', openDrawer);
+  drawerOverlay.addEventListener('click', function (e) {
+    if (e.target === drawerOverlay) closeDrawer();
+  });
+  $('addProfileBtn').addEventListener('click', function () {
+    $('newProfileName').value = 'Profile ' + (profiles.length + 1);
+    $('newProfileErr').textContent = '';
+    $('addProfileRow').classList.add('show');
+    $('newProfileName').focus();
+    $('newProfileName').select();
+  });
+  $('cancelCreateBtn').addEventListener('click', function () {
+    $('addProfileRow').classList.remove('show');
+  });
+  $('newProfileName').addEventListener('input', function () { $('newProfileErr').textContent = ''; });
+  $('createProfileBtn').addEventListener('click', function () {
+    var v = $('newProfileName').value.trim();
+    if (!v) { $('newProfileErr').textContent = 'Type a name first.'; return; }
+    var p = { id: uuid(), name: v.slice(0, 50) };
+    profiles.push(p);
+    selectedProfileId = p.id;
+    lsSet(SELECTED_KEY, p.id);
+    saveLocal();
+    if (session && lsGet(SYNCED_ONCE_KEY)) {
+      pending.push({ op: 'pinsert', profile: { id: p.id, name: p.name } });
+      savePending();
+      syncNow();
+    }
+    $('addProfileRow').classList.remove('show');
+    render();
+    closeDrawer();
+  });
 
   function buildRow(entry) {
     var row = document.createElement('div');
@@ -1222,9 +1661,10 @@
   $('exportBtn').addEventListener('click', function () {
     recompute();
     var data = {
-      version: 1,
-      balance: totalCents() / 100,
+      version: 3,
+      balance: allCents() / 100,
       lastUpdated: entries.length ? entries[entries.length - 1].date : null,
+      profiles: profiles,
       entries: entries
     };
     var now = new Date();
@@ -1275,8 +1715,9 @@
         showImportBar('That file does not look like a Money Tracker backup.', null);
         return;
       }
-      var msg = 'Replace your current data with this backup (' + incoming.length
-        + (incoming.length === 1 ? ' entry' : ' entries') + ')?';
+      var n = incoming.entries.length;
+      var msg = 'Replace your current data with this backup (' + n
+        + (n === 1 ? ' entry' : ' entries') + ')?';
       if (session) msg += ' This also replaces the entries stored in your account.';
       showImportBar(msg, incoming);
     };
@@ -1319,17 +1760,40 @@
   }
 
   function applyImport(incoming) {
-    if (session) {
-      var i;
-      for (i = 0; i < entries.length; i++) {
-        pending.push({ op: 'delete', id: entries[i].id });
+    var i;
+    // Older backups carry no profiles: wrap their entries in a fresh "Main".
+    if (!incoming.profiles.length) {
+      var main = { id: uuid(), name: 'Main' };
+      incoming.profiles = [main];
+      for (i = 0; i < incoming.entries.length; i++) incoming.entries[i].profileId = main.id;
+    } else {
+      var known = {};
+      for (i = 0; i < incoming.profiles.length; i++) known[incoming.profiles[i].id] = true;
+      for (i = 0; i < incoming.entries.length; i++) {
+        if (!incoming.entries[i].profileId || !known[incoming.entries[i].profileId]) {
+          incoming.entries[i].profileId = incoming.profiles[0].id;
+        }
       }
-      for (i = 0; i < incoming.length; i++) {
-        pending.push({ op: 'insert', entry: { id: incoming[i].id, date: incoming[i].date, note: incoming[i].note, amount: incoming[i].amount } });
+    }
+    if (session) {
+      // Deleting the current profiles cascades their entries server-side,
+      // then the backup's profiles and entries are inserted fresh.
+      for (i = 0; i < profiles.length; i++) {
+        pending.push({ op: 'pdelete', id: profiles[i].id });
+      }
+      for (i = 0; i < incoming.profiles.length; i++) {
+        pending.push({ op: 'pinsert', profile: { id: incoming.profiles[i].id, name: incoming.profiles[i].name } });
+      }
+      for (i = 0; i < incoming.entries.length; i++) {
+        var e = incoming.entries[i];
+        pending.push({ op: 'insert', entry: { id: e.id, profileId: e.profileId, date: e.date, note: e.note, amount: e.amount } });
       }
       savePending();
     }
-    entries = sortEntries(incoming);
+    profiles = incoming.profiles;
+    entries = incoming.entries;
+    selectedProfileId = profiles[0].id;
+    lsSet(SELECTED_KEY, selectedProfileId);
     saveLocal();
     render();
     hideImportBar();
@@ -1361,9 +1825,12 @@
 
   // ---------- boot ----------
 
-  entries = sortEntries(loadLocal());
+  var loaded = loadLocal();
+  profiles = loaded.profiles;
+  entries = loaded.entries;
   pending = loadPending();
   session = loadSession();
+  ensureProfiles();
   recompute();
 
   if (session) {
