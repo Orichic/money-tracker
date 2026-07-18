@@ -412,6 +412,7 @@
   var SYNCED_ONCE_KEY = 'moneytracker.synced-once';
   var PENDING_OWNER_KEY = 'moneytracker.pending-owner';
   var SELECTED_KEY = 'moneytracker.selected';
+  var PROVISIONAL_KEY = 'moneytracker.provisional';
   var PRESYNC_KEY = 'moneytracker.presync-backup';
   var EMAIL_KEY = 'moneytracker.email';
   var TIP_KEY = 'moneytracker.tip-dismissed';
@@ -420,6 +421,7 @@
   var entries = [];      // all entries across profiles: [{id, profileId, date, note, amount, balanceAfter}]
   var profiles = [];     // profile tabs: [{id, name}]
   var selectedProfileId = null;
+  var provisionalProfileId = null; // boot-created Main not yet published to the cloud
   var drawerEdit = null;    // profile id whose edit panel is open
   var drawerConfirm = null; // profile id whose delete confirm is open
   var pending = [];      // entry ops (insert/delete) + profile ops (pinsert/prename/pdelete)
@@ -507,14 +509,29 @@
   }
 
   // Guarantees at least one profile, valid entry links, and a valid selection.
-  function ensureProfiles() {
+  //
+  // At boot on a synced device the account may already have profiles in the
+  // cloud, so a freshly minted "Main" stays PROVISIONAL (not published):
+  // entries queued against it are sent without a profile and the server homes
+  // them into the account's real first profile; the first merge then replaces
+  // it. Only a merge that has SEEN an empty cloud may publish a new Main.
+  function ensureProfiles(atBoot) {
     if (!profiles.length) {
-      var main = { id: uuid(), name: 'Main' };
-      profiles.push(main);
-      if (session && lsGet(SYNCED_ONCE_KEY)) {
-        pending.push({ op: 'pinsert', profile: { id: main.id, name: main.name } });
-        savePending();
+      var synced = session && lsGet(SYNCED_ONCE_KEY);
+      var main;
+      if (atBoot && synced) {
+        var prov = lsGet(PROVISIONAL_KEY);
+        main = { id: (prov && UUID_RE.test(prov)) ? prov : uuid(), name: 'Main' };
+        provisionalProfileId = main.id;
+        lsSet(PROVISIONAL_KEY, main.id);
+      } else {
+        main = { id: uuid(), name: 'Main' };
+        if (synced) {
+          pending.push({ op: 'pinsert', profile: { id: main.id, name: main.name } });
+          savePending();
+        }
       }
+      profiles.push(main);
     }
     var known = {};
     for (var i = 0; i < profiles.length; i++) known[profiles[i].id] = true;
@@ -533,6 +550,13 @@
       if (profiles[i].id === selectedProfileId) return profiles[i];
     }
     return profiles[0] || null;
+  }
+
+  function profileById(id) {
+    for (var i = 0; i < profiles.length; i++) {
+      if (profiles[i].id === id) return profiles[i];
+    }
+    return null;
   }
 
   function uuid() {
@@ -880,6 +904,9 @@
     for (i = 0; i < inserts.length; i++) {
       var pe = inserts[i];
       if (byId[pe.entry.id] || deletes[pe.entry.id]) continue;
+      // An op whose target profile vanished (deleted remotely) will FK-fail
+      // and be dropped - do not show it under a wrong tab.
+      if (pe.entry.profileId && !mergedProfIds[pe.entry.profileId]) continue;
       merged.push({
         id: pe.entry.id, profileId: pe.entry.profileId || null,
         date: pe.entry.date, note: pe.entry.note || '',
@@ -887,15 +914,32 @@
       });
     }
 
+    // The server has spoken: the provisional boot Main is now either replaced
+    // by the cloud's profiles or recreated (and published) by ensureProfiles.
+    provisionalProfileId = null;
+    lsDel(PROVISIONAL_KEY);
+
     profiles = mergedProfiles;
     entries = merged;
-    ensureProfiles();
+    ensureProfiles(false);
     lsSet(SELECTED_KEY, selectedProfileId);
     saveLocal();
     render();
+
+    // Keep an open drawer in step with the merge (but never rebuild an open
+    // rename editor - that would eat the user's typing).
+    if (drawerOverlay.classList.contains('show')) {
+      if (drawerEdit && !profileById(drawerEdit)) drawerEdit = null;
+      if (drawerConfirm && !profileById(drawerConfirm)) { drawerConfirm = null; drawerEdit = null; }
+      if (!drawerEdit) renderDrawer();
+    }
   }
 
   function enqueueAllLocal() {
+    // The user chose to keep this data, so the boot Main (if any) is being
+    // published for real now.
+    provisionalProfileId = null;
+    lsDel(PROVISIONAL_KEY);
     var i;
     for (i = 0; i < profiles.length; i++) {
       pending.push({ op: 'pinsert', profile: { id: profiles[i].id, name: profiles[i].name } });
@@ -909,7 +953,7 @@
   // First sync on this device: decide what happens to pre-existing local data.
   function firstSync(serverProfiles, server) {
     lsSet(PRESYNC_KEY, lsGet(KEY) || '');
-    if (server.length === 0) {
+    if (server.length === 0 && serverProfiles.length === 0) {
       // cloud has no entries: upload everything local
       enqueueAllLocal();
       lsSet(SYNCED_ONCE_KEY, '1');
@@ -1231,7 +1275,10 @@
     clearError();
     saveLocal();
     if (session) {
-      pending.push({ op: 'insert', entry: { id: e.id, profileId: e.profileId, date: e.date, note: e.note, amount: e.amount } });
+      // A provisional profile does not exist in the cloud yet - send the
+      // entry without one; the server homes it into the real first profile.
+      var opPid = e.profileId === provisionalProfileId ? null : e.profileId;
+      pending.push({ op: 'insert', entry: { id: e.id, profileId: opPid, date: e.date, note: e.note, amount: e.amount } });
       savePending();
       syncNow();
     }
@@ -1338,6 +1385,9 @@
     main.appendChild(nm);
     main.appendChild(bal);
     main.addEventListener('click', function () {
+      // The profile may have been deleted by another device while the
+      // drawer was open - refresh instead of selecting a ghost.
+      if (!profileById(p.id)) { renderDrawer(); return; }
       selectedProfileId = p.id;
       lsSet(SELECTED_KEY, p.id);
       clearError();
@@ -1405,11 +1455,15 @@
     save.addEventListener('click', function () {
       var v = input.value.trim();
       if (!v) { err.textContent = 'Type a name first.'; return; }
-      if (v !== p.name) {
-        p.name = v.slice(0, 50);
+      // Re-resolve by id - a background sync may have swapped the profiles
+      // array while the editor was open.
+      var cur = profileById(p.id);
+      if (!cur) { drawerEdit = null; renderDrawer(); return; }
+      if (v !== cur.name) {
+        cur.name = v.slice(0, 50);
         saveLocal();
         if (session && lsGet(SYNCED_ONCE_KEY)) {
-          pending.push({ op: 'prename', id: p.id, name: p.name });
+          pending.push({ op: 'prename', id: cur.id, name: cur.name });
           savePending();
           syncNow();
         }
@@ -1752,6 +1806,10 @@
     // "Replace the account" must see the FULL server state first, or rows this
     // device never pulled would survive and re-merge on top of the backup.
     flushPending().then(pullEntries).then(function () {
+      if (migrationServer || !lsGet(SYNCED_ONCE_KEY)) {
+        showImportBar('Answer the cloud-data question above first, then import the backup again.', null);
+        return;
+      }
       applyImport(incoming);
       syncNow();
     }).catch(function () {
@@ -1830,8 +1888,8 @@
   entries = loaded.entries;
   pending = loadPending();
   session = loadSession();
-  ensureProfiles();
-  recompute();
+  ensureProfiles(true);
+  saveLocal(); // persist any boot-minted default profile so relaunches reuse it
 
   if (session) {
     showMain();
