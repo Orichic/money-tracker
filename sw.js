@@ -1,5 +1,5 @@
 // Money Tracker service worker - makes the app work offline.
-var CACHE = 'moneytracker-v2';
+var CACHE = 'moneytracker-v3';
 var ASSETS = [
   './',
   './index.html',

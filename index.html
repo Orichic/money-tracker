@@ -28,6 +28,7 @@
     --redbtn: #BE3A3A;
     --link: #70B2FF;
     --accent: #2F6FD8;
+    --warn: #E5A54B;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
   html, body { background: var(--bg); }
@@ -38,6 +39,8 @@
     padding-bottom: env(safe-area-inset-bottom);
   }
   .wrap { max-width: 520px; margin: 0 auto; }
+  #mainApp { display: none; }
+  #mainApp.show { display: block; }
 
   header { padding: 22px 20px 18px; }
   .cap-row { display: flex; justify-content: space-between; align-items: baseline; }
@@ -114,19 +117,35 @@
 
   #empty { color: var(--dim); text-align: center; padding: 48px 24px; font-size: 15px; line-height: 1.7; }
 
-  footer { padding: 18px 20px calc(26px + env(safe-area-inset-bottom)); text-align: center; }
+  footer { padding: 12px 20px calc(26px + env(safe-area-inset-bottom)); text-align: center; }
   footer .links { display: flex; justify-content: center; gap: 22px; }
   footer .note { color: var(--dim); font-size: 12px; margin-top: 10px; }
-  #importBar {
+  #syncStatus {
+    color: var(--dim); font-size: 12.5px; min-height: 20px; margin-bottom: 2px;
+    display: flex; align-items: center; justify-content: center; gap: 7px; flex-wrap: wrap;
+  }
+  #syncStatus .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex: 0 0 auto; }
+  #syncStatus .dot.on { background: var(--green); }
+  #syncStatus .dot.off { background: var(--warn); }
+  #syncStatus .linkbtn { min-height: 0; padding: 0; font-size: 12.5px; }
+
+  #importBar, #migrateBar {
     display: none; margin-top: 12px; padding: 12px; background: var(--card);
     border: 1px solid var(--border); border-radius: 10px; font-size: 14px;
+    line-height: 1.5;
   }
-  #importBar.show { display: block; }
-  #importBar .confirm-btns { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
-  #importBar button {
+  #importBar.show, #migrateBar.show { display: block; }
+  #migrateBar { margin: 12px 20px 0; }
+  #importBar .confirm-btns, #migrateBar .confirm-btns {
+    display: flex; gap: 10px; justify-content: center; margin-top: 10px; flex-wrap: wrap;
+  }
+  #importBar button, #migrateBar button {
     border: none; border-radius: 8px; padding: 12px 18px; font-size: 14px;
     font-weight: 600; font-family: inherit; cursor: pointer; min-height: 44px;
   }
+  #importBar .yes, #migrateBar .yes { background: var(--accent); color: #fff; }
+  #importBar .no, #migrateBar .no { background: var(--input); color: var(--text); border: 1px solid var(--border); }
+
   #safariTip {
     display: none; margin: 0 20px 6px; padding: 12px 14px;
     background: var(--card); border: 1px solid var(--border); border-radius: 10px;
@@ -137,8 +156,37 @@
     background: none; border: none; color: var(--dim); font-size: 16px;
     padding: 4px 8px; cursor: pointer; margin-left: auto; font-family: inherit;
   }
-  #importBar .yes { background: var(--accent); color: #fff; }
-  #importBar .no { background: var(--input); color: var(--text); border: 1px solid var(--border); }
+
+  /* Sign-in screen */
+  #authScreen { display: none; padding: 48px 24px calc(40px + env(safe-area-inset-bottom)); max-width: 420px; margin: 0 auto; }
+  #authScreen.show { display: block; }
+  .auth-badge {
+    width: 64px; height: 64px; border-radius: 16px; background: var(--greenbtn);
+    color: #fff; font-size: 38px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; margin: 0 auto 18px;
+  }
+  #authScreen h1 { font-size: 22px; text-align: center; margin-bottom: 6px; }
+  .auth-sub { color: var(--dim); font-size: 14px; text-align: center; margin-bottom: 26px; line-height: 1.5; }
+  .auth-field { margin-bottom: 14px; }
+  .auth-field label { display: block; font-size: 13px; color: var(--dim); margin-bottom: 6px; }
+  .auth-field input {
+    width: 100%; background: var(--input); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px;
+    padding: 13px; font-size: 16px; font-family: inherit; outline: none;
+    -webkit-appearance: none; appearance: none;
+  }
+  .auth-field input:focus { border-color: var(--focus); }
+  #authMsg { font-size: 14px; min-height: 22px; margin: 4px 0 8px; color: var(--red); line-height: 1.5; }
+  #authMsg.ok { color: var(--green); }
+  .auth-btns { display: flex; flex-direction: column; gap: 12px; }
+  .auth-btns button {
+    border: none; border-radius: 10px; padding: 15px; font-size: 16px;
+    font-weight: 600; font-family: inherit; cursor: pointer; min-height: 48px;
+  }
+  #signInBtn { background: var(--accent); color: #fff; }
+  #signUpBtn { background: var(--input); color: var(--text); border: 1px solid var(--border); }
+  .auth-skip { text-align: center; margin-top: 18px; }
+  .auth-note { color: var(--dim); font-size: 12px; text-align: center; margin-top: 22px; line-height: 1.6; }
 
   /* Set Balance sheet */
   #overlay {
@@ -178,6 +226,30 @@
 </style>
 </head>
 <body>
+
+<div id="authScreen">
+  <div class="auth-badge">$</div>
+  <h1>Money Tracker</h1>
+  <div class="auth-sub">Sign in so your balance and history stay in sync between your phone and your PC.</div>
+  <div class="auth-field">
+    <label for="authEmail">Email</label>
+    <input id="authEmail" type="email" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false">
+  </div>
+  <div class="auth-field">
+    <label for="authPass">Password</label>
+    <input id="authPass" type="password" autocomplete="current-password">
+  </div>
+  <div id="authMsg"></div>
+  <div class="auth-btns">
+    <button id="signInBtn">Sign In</button>
+    <button id="signUpBtn">Create Account</button>
+  </div>
+  <div class="auth-skip"><button class="linkbtn" id="skipBtn">Use without an account (this device only)</button></div>
+  <div class="auth-note">Your entries are encrypted in transit and stored under your account only &mdash;
+  the database refuses to show them to anyone else. Nothing is ever put in the public code.</div>
+</div>
+
+<div id="mainApp">
 <div class="wrap">
   <header>
     <div class="cap-row">
@@ -212,6 +284,8 @@
     <div id="error"></div>
   </div>
 
+  <div id="migrateBar"></div>
+
   <div class="hist-head">
     <h2>History</h2>
     <span id="count">0 entries</span>
@@ -220,14 +294,16 @@
   <div id="empty">No history yet.<br>Type an amount above, then tap<br>+ Add Income or &minus; Subtract Expense.</div>
 
   <footer>
+    <div id="syncStatus"></div>
     <div class="links">
       <button class="linkbtn" id="exportBtn">Export backup</button>
       <button class="linkbtn" id="importBtn">Import backup</button>
     </div>
     <input type="file" id="importFile" accept=".json,application/json" style="display:none">
     <div id="importBar"></div>
-    <div class="note">Your data is stored on this device. Export a backup now and then to keep it safe.</div>
+    <div class="note" id="footNote">Export a backup now and then to keep your data extra safe.</div>
   </footer>
+</div>
 </div>
 
 <div id="overlay">
@@ -250,15 +326,37 @@
 (function () {
   'use strict';
 
+  // ---- sync backend (these two values are PUBLIC by design: they identify
+  // the database but grant no access - row-level security requires a login) ----
+  var SB_URL = 'https://zmvictylnzexrtyxxunn.supabase.co';
+  var SB_KEY = 'sb_publishable_H_Eg2Na5TsU-4VilicJY8g_kFG5EKWo';
+
   var KEY = 'moneytracker.v1';
+  var PENDING_KEY = 'moneytracker.pending';
+  var SESSION_KEY = 'moneytracker.session';
+  var LOCALONLY_KEY = 'moneytracker.localonly';
+  var SYNCED_ONCE_KEY = 'moneytracker.synced-once';
+  var PRESYNC_KEY = 'moneytracker.presync-backup';
+  var EMAIL_KEY = 'moneytracker.email';
+  var TIP_KEY = 'moneytracker.tip-dismissed';
   var MAX_CENTS = 99999999900; // $999,999,999.00
 
-  var entries = [];   // [{date: iso string, note, amount: dollars, balanceAfter: dollars}]
+  var entries = [];      // merged view: [{id, date, note, amount, balanceAfter}]
+  var pending = [];      // [{op:'insert', entry:{id,date,note,amount}} | {op:'delete', id}]
+  var session = null;    // {access_token, refresh_token, expires_at, email}
+  var flushing = null;   // in-flight flush promise
+  var refreshing = null; // in-flight token refresh promise
+  var syncTimer = null;
+  var migrationServer = null; // server entries held while the migrate choice is shown
 
   var $ = function (id) { return document.getElementById(id); };
   var balanceEl = $('balance'), updatedEl = $('updated'), errorEl = $('error');
   var listEl = $('list'), emptyEl = $('empty'), countEl = $('count');
   var amountEl = $('amount'), noteEl = $('note');
+
+  function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { } }
+  function lsDel(k) { try { localStorage.removeItem(k); } catch (e) { } }
 
   // ---------- money helpers (all math in integer cents) ----------
 
@@ -301,11 +399,22 @@
     }
   }
 
+  function uuid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    var b = new Uint8Array(16);
+    crypto.getRandomValues(b);
+    b[6] = (b[6] & 15) | 64;
+    b[8] = (b[8] & 63) | 128;
+    var h = [];
+    for (var i = 0; i < 16; i++) h.push((b[i] + 256).toString(16).slice(1));
+    return h[0] + h[1] + h[2] + h[3] + '-' + h[4] + h[5] + '-' + h[6] + h[7] + '-'
+      + h[8] + h[9] + '-' + h[10] + h[11] + h[12] + h[13] + h[14] + h[15];
+  }
+
   // ---------- dates ----------
 
   function parseIso(s) {
     if (!s) return null;
-    // Trim >3 fractional-second digits (the Windows app writes 7).
     var d = new Date(String(s).replace(/\.(\d{3})\d+/, '.$1'));
     return isNaN(d.getTime()) ? null : d;
   }
@@ -319,15 +428,27 @@
     return mm + '-' + dd + '-' + d.getFullYear() + '  ' + h + ':' + min + ' ' + ap;
   }
 
-  // ---------- storage (same JSON shape as the Windows app) ----------
+  function entryTime(e) {
+    var d = parseIso(e.date);
+    return d ? d.getTime() : 0;
+  }
 
-  function load() {
-    try {
-      var raw = localStorage.getItem(KEY);
-      if (!raw) return [];
-      var data = JSON.parse(raw);
-      return sanitize(data) || [];
-    } catch (e) { return []; }
+  function sortEntries(list) {
+    list.sort(function (a, b) {
+      var t = entryTime(a) - entryTime(b);
+      if (t !== 0) return t;
+      return (a.id || '') < (b.id || '') ? -1 : 1;
+    });
+    return list;
+  }
+
+  // ---------- local storage (same JSON shape as the Windows app) ----------
+
+  function loadLocal() {
+    var raw = lsGet(KEY);
+    if (!raw) return [];
+    try { return sanitize(JSON.parse(raw)) || []; }
+    catch (e) { return []; }
   }
 
   // Returns null when the shape is wrong, an array (possibly empty) when valid.
@@ -338,6 +459,7 @@
       var e = data.entries[i];
       if (!e || typeof e.amount !== 'number' || !isFinite(e.amount)) continue;
       out.push({
+        id: typeof e.id === 'string' && e.id ? e.id : uuid(),
         date: typeof e.date === 'string' ? e.date : '',
         note: typeof e.note === 'string' ? e.note : '',
         amount: Math.round(e.amount * 100) / 100,
@@ -347,7 +469,7 @@
     return out;
   }
 
-  function save() {
+  function saveLocal() {
     recompute();
     var data = {
       version: 1,
@@ -355,12 +477,442 @@
       lastUpdated: entries.length ? entries[entries.length - 1].date : null,
       entries: entries
     };
-    try {
-      localStorage.setItem(KEY, JSON.stringify(data));
-    } catch (e) {
-      showError('Could not save - device storage may be full.');
-    }
+    try { localStorage.setItem(KEY, JSON.stringify(data)); }
+    catch (e) { showError('Could not save - device storage may be full.'); }
   }
+
+  function loadPending() {
+    var raw = lsGet(PENDING_KEY);
+    if (!raw) return [];
+    try {
+      var p = JSON.parse(raw);
+      return Array.isArray(p) ? p : [];
+    } catch (e) { return []; }
+  }
+
+  function savePending() { lsSet(PENDING_KEY, JSON.stringify(pending)); }
+
+  function loadSession() {
+    var raw = lsGet(SESSION_KEY);
+    if (!raw) return null;
+    try {
+      var s = JSON.parse(raw);
+      return (s && s.access_token && s.refresh_token) ? s : null;
+    } catch (e) { return null; }
+  }
+
+  function saveSession() {
+    if (session) lsSet(SESSION_KEY, JSON.stringify(session));
+    else lsDel(SESSION_KEY);
+  }
+
+  // ---------- sync engine ----------
+
+  function fetchTimeout(url, opts, ms) {
+    var ctrl = ('AbortController' in window) ? new AbortController() : null;
+    if (ctrl) opts.signal = ctrl.signal;
+    var t = ctrl ? setTimeout(function () { ctrl.abort(); }, ms || 10000) : null;
+    return fetch(url, opts).finally(function () { if (t) clearTimeout(t); });
+  }
+
+  function authHeaders(extra) {
+    var h = extra || {};
+    h['apikey'] = SB_KEY;
+    if (session) h['Authorization'] = 'Bearer ' + session.access_token;
+    return h;
+  }
+
+  function storeTokenResponse(body, email) {
+    session = {
+      access_token: body.access_token,
+      refresh_token: body.refresh_token,
+      expires_at: Math.floor(Date.now() / 1000) + (body.expires_in || 3600) - 60,
+      email: email || (body.user && body.user.email) || (session && session.email) || ''
+    };
+    saveSession();
+  }
+
+  function doRefresh() {
+    if (refreshing) return refreshing;
+    var rt = session && session.refresh_token;
+    refreshing = fetchTimeout(SB_URL + '/auth/v1/token?grant_type=refresh_token', {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: rt })
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.json().catch(function () { return {}; }).then(function () {
+          if (res.status === 400 || res.status === 401) signOut(true);
+          throw new Error('refresh failed');
+        });
+      }
+      return res.json().then(function (body) { storeTokenResponse(body); });
+    }).finally(function () { refreshing = null; });
+    return refreshing;
+  }
+
+  function ensureFreshToken() {
+    if (!session) return Promise.reject(new Error('no session'));
+    if (Math.floor(Date.now() / 1000) < session.expires_at) return Promise.resolve();
+    return doRefresh();
+  }
+
+  function apiFetch(path, opts) {
+    opts = opts || {};
+    return ensureFreshToken().then(function () {
+      opts.headers = authHeaders(opts.headers);
+      return fetchTimeout(SB_URL + path, opts);
+    }).then(function (res) {
+      if (res.status !== 401) return res;
+      // one forced refresh + retry, then give up
+      return doRefresh().then(function () {
+        opts.headers = authHeaders(opts.headers);
+        return fetchTimeout(SB_URL + path, opts);
+      });
+    });
+  }
+
+  function flushPending() {
+    if (flushing) return flushing;
+    flushing = (function next() {
+      if (!pending.length) return Promise.resolve();
+      var op = pending[0];
+      var req;
+      if (op.op === 'insert') {
+        req = apiFetch('/rest/v1/entries?on_conflict=id', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Prefer': 'resolution=ignore-duplicates,return=minimal' },
+          body: JSON.stringify([{
+            id: op.entry.id,
+            date: op.entry.date,
+            note: op.entry.note || '',
+            amount_cents: toCents(op.entry.amount)
+          }])
+        });
+      } else {
+        req = apiFetch('/rest/v1/entries?id=eq.' + encodeURIComponent(op.id), { method: 'DELETE' });
+      }
+      return req.then(function (res) {
+        if (res.ok || res.status === 409) {
+          pending.shift();
+          savePending();
+          return next();
+        }
+        if (res.status >= 400 && res.status < 500) {
+          // permanently rejected (bad data) - drop it rather than jam the queue
+          pending.shift();
+          savePending();
+          return next();
+        }
+        throw new Error('flush failed: ' + res.status);
+      });
+    })().finally(function () { flushing = null; });
+    return flushing;
+  }
+
+  function pullEntries() {
+    return apiFetch('/rest/v1/entries?select=id,date,note,amount_cents&order=date.asc,created_at.asc', {
+      method: 'GET', headers: { 'Content-Type': 'application/json' }
+    }).then(function (res) {
+      if (!res.ok) throw new Error('pull failed: ' + res.status);
+      return res.json();
+    }).then(function (rows) {
+      var server = [];
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        if (!r || typeof r.amount_cents !== 'number') continue;
+        server.push({
+          id: String(r.id),
+          date: String(r.date || ''),
+          note: typeof r.note === 'string' ? r.note : '',
+          amount: r.amount_cents / 100,
+          balanceAfter: 0
+        });
+      }
+      if (!lsGet(SYNCED_ONCE_KEY)) return firstSync(server);
+      applyServer(server);
+    });
+  }
+
+  // Merge the server list with whatever is still queued locally.
+  function applyServer(server) {
+    var byId = {}, i;
+    for (i = 0; i < server.length; i++) byId[server[i].id] = true;
+    var deletes = {};
+    for (i = 0; i < pending.length; i++) {
+      if (pending[i].op === 'delete') deletes[pending[i].id] = true;
+    }
+    var merged = [];
+    for (i = 0; i < server.length; i++) {
+      if (!deletes[server[i].id]) merged.push(server[i]);
+    }
+    for (i = 0; i < pending.length; i++) {
+      var p = pending[i];
+      if (p.op === 'insert' && !byId[p.entry.id] && !deletes[p.entry.id]) {
+        merged.push({ id: p.entry.id, date: p.entry.date, note: p.entry.note || '', amount: p.entry.amount, balanceAfter: 0 });
+      }
+    }
+    entries = sortEntries(merged);
+    saveLocal();
+    render();
+  }
+
+  // First sync on this device: decide what happens to pre-existing local data.
+  function firstSync(server) {
+    lsSet(PRESYNC_KEY, lsGet(KEY) || '');
+    if (server.length === 0) {
+      // cloud is empty: upload everything local
+      for (var i = 0; i < entries.length; i++) {
+        pending.push({ op: 'insert', entry: { id: entries[i].id, date: entries[i].date, note: entries[i].note, amount: entries[i].amount } });
+      }
+      savePending();
+      lsSet(SYNCED_ONCE_KEY, '1');
+      return flushPending().then(pullEntries);
+    }
+    if (entries.length === 0) {
+      lsSet(SYNCED_ONCE_KEY, '1');
+      applyServer(server);
+      return;
+    }
+    // both sides have data: let the user decide, inline
+    migrationServer = server;
+    showMigrateBar();
+  }
+
+  function showMigrateBar() {
+    var bar = $('migrateBar');
+    bar.textContent = '';
+    bar.classList.add('show');
+    var msg = document.createElement('div');
+    msg.textContent = 'Your account already has ' + migrationServer.length
+      + (migrationServer.length === 1 ? ' entry' : ' entries') + ' in the cloud, and this device has '
+      + entries.length + ' of its own. What should happen to the ones on this device?';
+    bar.appendChild(msg);
+    var btns = document.createElement('div');
+    btns.className = 'confirm-btns';
+    var keep = document.createElement('button');
+    keep.className = 'no';
+    keep.textContent = 'Use cloud data only';
+    keep.addEventListener('click', function () { finishMigration(false); });
+    var add = document.createElement('button');
+    add.className = 'yes';
+    add.textContent = 'Add these too';
+    add.addEventListener('click', function () { finishMigration(true); });
+    btns.appendChild(add);
+    btns.appendChild(keep);
+    bar.appendChild(btns);
+  }
+
+  function finishMigration(addLocal) {
+    var server = migrationServer || [];
+    migrationServer = null;
+    $('migrateBar').classList.remove('show');
+    $('migrateBar').textContent = '';
+    if (addLocal) {
+      for (var i = 0; i < entries.length; i++) {
+        pending.push({ op: 'insert', entry: { id: entries[i].id, date: entries[i].date, note: entries[i].note, amount: entries[i].amount } });
+      }
+      savePending();
+    } else {
+      entries = [];
+    }
+    lsSet(SYNCED_ONCE_KEY, '1');
+    applyServer(server);
+    syncNow();
+  }
+
+  function setSyncStatus(state, detail) {
+    var el = $('syncStatus');
+    el.textContent = '';
+    if (!session) {
+      if (lsGet(LOCALONLY_KEY)) {
+        var b = document.createElement('button');
+        b.className = 'linkbtn';
+        b.textContent = 'Sign in to sync with your PC';
+        b.addEventListener('click', function () { showAuth(); });
+        el.appendChild(b);
+      }
+      return;
+    }
+    var dot = document.createElement('span');
+    dot.className = 'dot ' + (state === 'ok' ? 'on' : 'off');
+    var txt = document.createElement('span');
+    var label = state === 'ok' ? 'Synced' : (state === 'busy' ? 'Syncing…' : 'Offline');
+    if (state === 'err' && pending.length) {
+      label = 'Offline — ' + pending.length + (pending.length === 1 ? ' change' : ' changes') + ' waiting';
+    }
+    txt.textContent = label + ' · ' + (session.email || 'signed in');
+    var out = document.createElement('button');
+    out.className = 'linkbtn';
+    out.textContent = 'Sign out';
+    out.addEventListener('click', confirmSignOut);
+    el.appendChild(dot);
+    el.appendChild(txt);
+    el.appendChild(out);
+  }
+
+  function syncNow() {
+    if (!session || migrationServer) return Promise.resolve();
+    setSyncStatus('busy');
+    return flushPending().then(pullEntries).then(function () {
+      setSyncStatus('ok');
+    }).catch(function () {
+      setSyncStatus('err');
+    });
+  }
+
+  function startSyncLoop() {
+    if (syncTimer) clearInterval(syncTimer);
+    syncTimer = setInterval(function () {
+      if (document.visibilityState === 'visible') syncNow();
+    }, 6000);
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && session) syncNow();
+  });
+  window.addEventListener('online', function () { if (session) syncNow(); });
+
+  // ---------- auth ----------
+
+  function showAuth() {
+    $('authScreen').classList.add('show');
+    $('mainApp').classList.remove('show');
+    $('authEmail').value = lsGet(EMAIL_KEY) || '';
+    $('authPass').value = '';
+    setAuthMsg('', false);
+  }
+
+  function showMain() {
+    $('authScreen').classList.remove('show');
+    $('mainApp').classList.add('show');
+    setSyncStatus(session ? 'ok' : '');
+  }
+
+  function setAuthMsg(msg, ok) {
+    var el = $('authMsg');
+    el.textContent = msg;
+    el.className = ok ? 'ok' : '';
+  }
+
+  function authErrorText(body, fallback) {
+    var m = (body && (body.msg || body.message || body.error_description)) || '';
+    if (/invalid login credentials/i.test(m)) return 'Wrong email or password.';
+    if (/not confirmed/i.test(m)) return 'Almost there - tap the confirmation link we emailed you, then sign in.';
+    if (/already registered|already exists/i.test(m)) return 'That email already has an account - use Sign In instead.';
+    if (/at least|password/i.test(m) && /6|characters/i.test(m)) return 'Password needs to be at least 6 characters.';
+    return m || fallback;
+  }
+
+  function readAuthInputs() {
+    var email = $('authEmail').value.trim();
+    var pass = $('authPass').value;
+    if (!email || email.indexOf('@') < 1) { setAuthMsg('Type your email address first.', false); return null; }
+    if (!pass) { setAuthMsg('Type your password.', false); return null; }
+    return { email: email, pass: pass };
+  }
+
+  function signIn() {
+    var c = readAuthInputs();
+    if (!c) return;
+    setAuthMsg('Signing in…', true);
+    fetchTimeout(SB_URL + '/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: c.email, password: c.pass })
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (body) {
+        if (!res.ok || !body.access_token) {
+          setAuthMsg(authErrorText(body, 'Could not sign in - please try again.'), false);
+          return;
+        }
+        storeTokenResponse(body, c.email);
+        lsSet(EMAIL_KEY, c.email);
+        lsDel(LOCALONLY_KEY);
+        showMain();
+        render();
+        startSyncLoop();
+        syncNow();
+      });
+    }).catch(function () {
+      setAuthMsg('Can’t reach the sync server - check your connection and try again.', false);
+    });
+  }
+
+  function signUp() {
+    var c = readAuthInputs();
+    if (!c) return;
+    if (c.pass.length < 6) { setAuthMsg('Password needs to be at least 6 characters.', false); return; }
+    setAuthMsg('Creating your account…', true);
+    fetchTimeout(SB_URL + '/auth/v1/signup', {
+      method: 'POST',
+      headers: { 'apikey': SB_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: c.email, password: c.pass })
+    }).then(function (res) {
+      return res.json().catch(function () { return {}; }).then(function (body) {
+        if (!res.ok) {
+          setAuthMsg(authErrorText(body, 'Could not create the account - please try again.'), false);
+          return;
+        }
+        lsSet(EMAIL_KEY, c.email);
+        if (body.access_token) {
+          storeTokenResponse(body, c.email);
+          lsDel(LOCALONLY_KEY);
+          showMain();
+          render();
+          startSyncLoop();
+          syncNow();
+        } else {
+          setAuthMsg('Account created! Check your email (' + c.email + ') and tap the confirmation link, then come back and sign in.', true);
+        }
+      });
+    }).catch(function () {
+      setAuthMsg('Can’t reach the sync server - check your connection and try again.', false);
+    });
+  }
+
+  function confirmSignOut() {
+    if (!pending.length) { signOut(false); return; }
+    var el = $('syncStatus');
+    el.textContent = '';
+    var txt = document.createElement('span');
+    txt.textContent = pending.length + (pending.length === 1 ? ' change hasn’t' : ' changes haven’t') + ' synced yet. Sign out anyway?';
+    var yes = document.createElement('button');
+    yes.className = 'linkbtn';
+    yes.textContent = 'Sign out';
+    yes.addEventListener('click', function () { signOut(false); });
+    var no = document.createElement('button');
+    no.className = 'linkbtn';
+    no.textContent = 'Cancel';
+    no.addEventListener('click', function () { setSyncStatus('ok'); });
+    el.appendChild(txt);
+    el.appendChild(yes);
+    el.appendChild(no);
+  }
+
+  function signOut(expired) {
+    session = null;
+    saveSession();
+    pending = [];
+    savePending();
+    lsDel(SYNCED_ONCE_KEY);
+    if (syncTimer) { clearInterval(syncTimer); syncTimer = null; }
+    showAuth();
+    if (expired) setAuthMsg('Your session expired - please sign in again.', false);
+  }
+
+  $('signInBtn').addEventListener('click', signIn);
+  $('signUpBtn').addEventListener('click', signUp);
+  $('authPass').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); signIn(); }
+  });
+  $('authEmail').addEventListener('input', function () { setAuthMsg('', false); });
+  $('authPass').addEventListener('input', function () { setAuthMsg('', false); });
+  $('skipBtn').addEventListener('click', function () {
+    lsSet(LOCALONLY_KEY, '1');
+    showMain();
+    render();
+  });
 
   // ---------- validation (mirrors the Windows app) ----------
 
@@ -376,8 +928,6 @@
     if (raw.indexOf(',') >= 0 && !/^\s*\$?\s*\d{1,3}(,\d{3})+(\.\d+)?\s*$/.test(raw)) {
       return invalid;
     }
-    // Allow a single leading "$"; reject any interior whitespace so "5 5"
-    // cannot silently become 55.
     var cleaned = raw.replace(/^\$/, '').trim();
     if (/\s/.test(cleaned)) return invalid;
     cleaned = cleaned.replace(/,/g, '');
@@ -399,16 +949,22 @@
   // ---------- actions ----------
 
   function addEntry(cents, note) {
-    entries.push({
+    var e = {
+      id: uuid(),
       date: new Date().toISOString(),
       note: note || '',
       amount: cents / 100,
       balanceAfter: 0
-    });
-    // Clear any stale validation message BEFORE saving, so a save-failure
-    // warning set inside save() stays visible.
+    };
+    entries.push(e);
+    sortEntries(entries);
     clearError();
-    save();
+    saveLocal();
+    if (session) {
+      pending.push({ op: 'insert', entry: { id: e.id, date: e.date, note: e.note, amount: e.amount } });
+      savePending();
+      syncNow();
+    }
     render();
     amountEl.value = '';
     noteEl.value = '';
@@ -427,7 +983,14 @@
   function deleteEntry(entry) {
     var i = entries.indexOf(entry);
     if (i >= 0) entries.splice(i, 1);
-    save();
+    saveLocal();
+    if (session) {
+      // Queue order guarantees the insert (if still queued) lands first, so
+      // this delete can never leave a ghost row behind.
+      pending.push({ op: 'delete', id: entry.id });
+      savePending();
+      syncNow();
+    }
     render();
   }
 
@@ -526,8 +1089,6 @@
     sheetInput.value = (totalCents() / 100).toFixed(2);
     sheetError.textContent = '';
     overlay.classList.add('show');
-    // Synchronous focus keeps the user-gesture context, so iOS opens the
-    // keyboard and honors the text selection.
     sheetInput.focus();
     sheetInput.select();
     adjustSheet();
@@ -539,8 +1100,6 @@
     sheetEl.style.transform = '';
   }
 
-  // iOS overlays the keyboard without resizing the page, which would bury the
-  // sheet's buttons - lift the sheet by however much of the viewport is hidden.
   function adjustSheet() {
     if (!window.visualViewport) return;
     var lift = 0;
@@ -557,8 +1116,6 @@
   $('setBalBtn').addEventListener('click', openSheet);
   $('sheetCancel').addEventListener('click', closeSheet);
 
-  // A tap outside while typing should dismiss the keyboard, not throw the
-  // input away. Sample focus on pointerdown - iOS blurs before 'click' fires.
   var typingTap = false;
   overlay.addEventListener('pointerdown', function (e) {
     typingTap = (e.target === overlay && document.activeElement === sheetInput);
@@ -570,8 +1127,6 @@
 
   sheetInput.addEventListener('input', function () { sheetError.textContent = ''; });
 
-  // The iOS decimal keypad has no minus key, so overdrawn balances need an
-  // explicit sign toggle.
   $('signBtn').addEventListener('click', function () {
     var v = sheetInput.value;
     sheetInput.value = v.charAt(0) === '-' ? v.slice(1) : '-' + v;
@@ -626,8 +1181,6 @@
     var name = 'MoneyTracker-backup-' + stamp + '.json';
     var json = JSON.stringify(data, null, 2);
 
-    // Home-screen apps on iOS have no download manager, so use the share
-    // sheet there ("Save to Files"). Everything else gets a normal download.
     if (navigator.standalone === true && navigator.canShare) {
       var file = null;
       try { file = new File([json], name, { type: 'application/json' }); }
@@ -670,8 +1223,10 @@
         showImportBar('That file does not look like a Money Tracker backup.', null);
         return;
       }
-      showImportBar('Replace your current data with this backup (' + incoming.length
-        + (incoming.length === 1 ? ' entry' : ' entries') + ')?', incoming);
+      var msg = 'Replace your current data with this backup (' + incoming.length
+        + (incoming.length === 1 ? ' entry' : ' entries') + ')?';
+      if (session) msg += ' This also replaces the entries stored in your account.';
+      showImportBar(msg, incoming);
     };
     reader.readAsText(file);
   });
@@ -688,12 +1243,7 @@
       var yes = document.createElement('button');
       yes.className = 'yes';
       yes.textContent = 'Replace';
-      yes.addEventListener('click', function () {
-        entries = incoming;
-        save();
-        render();
-        hideImportBar();
-      });
+      yes.addEventListener('click', function () { doImport(incoming); });
       btns.appendChild(yes);
     }
     var no = document.createElement('button');
@@ -702,6 +1252,25 @@
     no.addEventListener('click', hideImportBar);
     btns.appendChild(no);
     importBar.appendChild(btns);
+  }
+
+  function doImport(incoming) {
+    if (session) {
+      // replace cloud too: delete everything we know about, insert the backup
+      var i;
+      for (i = 0; i < entries.length; i++) {
+        pending.push({ op: 'delete', id: entries[i].id });
+      }
+      for (i = 0; i < incoming.length; i++) {
+        pending.push({ op: 'insert', entry: { id: incoming[i].id, date: incoming[i].date, note: incoming[i].note, amount: incoming[i].amount } });
+      }
+      savePending();
+    }
+    entries = sortEntries(incoming);
+    saveLocal();
+    render();
+    hideImportBar();
+    if (session) syncNow();
   }
 
   function hideImportBar() {
@@ -715,28 +1284,37 @@
   $('expenseBtn').addEventListener('click', function () { onAdd(-1); });
   amountEl.addEventListener('input', clearError);
   noteEl.addEventListener('input', clearError);
-  // Enter must not silently commit an income - move focus to the buttons so
-  // the user explicitly picks income or expense.
   amountEl.addEventListener('keydown', function (e) {
     if (e.key === 'Enter') { e.preventDefault(); $('incomeBtn').focus(); }
   });
 
-  // Safari and the home-screen app keep SEPARATE copies of the data on iOS.
-  // Warn people trying the app in a Safari tab before they enter real entries.
-  var TIP_KEY = 'moneytracker.tip-dismissed';
-  var tipDismissed = false;
-  try { tipDismissed = !!localStorage.getItem(TIP_KEY); } catch (e) { }
+  var tipDismissed = !!lsGet(TIP_KEY);
   if (/iPhone|iPad|iPod/.test(navigator.userAgent) && navigator.standalone === false && !tipDismissed) {
     $('safariTip').classList.add('show');
   }
   $('tipClose').addEventListener('click', function () {
     $('safariTip').classList.remove('show');
-    try { localStorage.setItem(TIP_KEY, '1'); } catch (e) { }
+    lsSet(TIP_KEY, '1');
   });
 
-  entries = load();
+  // ---------- boot ----------
+
+  entries = sortEntries(loadLocal());
+  pending = loadPending();
+  session = loadSession();
   recompute();
-  render();
+
+  if (session) {
+    showMain();
+    render();
+    startSyncLoop();
+    syncNow();
+  } else if (lsGet(LOCALONLY_KEY)) {
+    showMain();
+    render();
+  } else {
+    showAuth();
+  }
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(function () { /* offline support unavailable */ });
